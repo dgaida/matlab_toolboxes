@@ -1,0 +1,23 @@
+%% LOCATION
+%
+html
+%
+%
+%% EXCEPTIONS
+%
+deleteDuplicates.m
+filterData.m
+getFilteredDataFromDB.m
+online_outlier_detection.m
+predict_data.m
+readfromdatabase.m
+replaceNaNs.m
+resampleData.m
+resampleDataTS.m
+resampleTS.m
+writeInCSV.m
+writeInDataset.m
+writeInXLS.m
+writetodatabase.m
+
+

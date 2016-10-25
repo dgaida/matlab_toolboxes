@@ -1,0 +1,33 @@
+%% LOCATION
+%
+html\doc
+%
+%
+%% EXCEPTIONS
+%
+checkIfInXMLfile.m
+checkLinksInMfile.m
+checkLinksInXMLfile.m
+create_pcode.m
+create_product_page.m
+getDateLastChangeOfScript.m
+getDocFileOfFunction.m
+getHeaderLinesOfMFile.m
+getHeaderOfMFile.m
+getInstallDocOfToolbox.m
+getPathToHelpFiles.m
+getPathToReleaseNotes.m
+getPublicationLocation.m
+getReleaseVersionOfMfile.m
+getRelPathToHTMLFile.m
+getScriptFileOfFunction.m
+getToolboxDevelopmentStatus.m
+getUninstallDocOfToolbox.m
+make_helptoc.m
+make_release_notes.m
+make_user_guide.m
+publish_toolbox.m
+replaceToolboxTagByText.m
+replace_entry.m
+
+

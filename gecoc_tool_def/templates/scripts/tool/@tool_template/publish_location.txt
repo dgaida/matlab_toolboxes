@@ -1,0 +1,14 @@
+%% LOCATION
+%
+html\tool
+%
+%
+%% EXCEPTIONS
+%
+getHelpPath.m
+getHTMLsubfolder.m
+getToolboxID.m
+getToolboxName.m
+getToolboxPath.m
+
+
