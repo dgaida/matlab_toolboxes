@@ -1,0 +1,16 @@
+%% LOCATION
+%
+html\mining
+%
+%
+%% EXCEPTIONS
+%
+calcConfusionMatrix.m
+classifierPerformance.m
+katz_lda.m
+LDA_evaluation.m
+LDA_lin_classifier.m
+startLDA.m
+testplot.m
+
+

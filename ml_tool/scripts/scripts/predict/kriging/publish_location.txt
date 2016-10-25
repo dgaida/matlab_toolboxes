@@ -1,0 +1,15 @@
+%% LOCATION
+%
+html\kriging
+%
+%
+%% EXCEPTIONS
+%
+evaluate_kriging.m
+findOptimalKrigingModel.m
+fitness_kriging.m
+lhsamp.m
+lhSampling.m
+StartPopulationKriging.m
+
+
