@@ -1,0 +1,24 @@
+%% LOCATION
+%
+html
+%
+%
+%% EXCEPTIONS
+%
+appendSensorData.m
+calcConfusionMatrix.m
+classifierPerformance.m
+convertStateEstimateToDefaultUnits.m
+createDataSetForPredictor.m
+createStateEstimator.m
+get_real_value_from_class.m
+getStateEstimateOfBiogasPlant.m
+getStateEstimateOfDigester.m
+getVectorOutOfStream.m
+katz_lda.m
+simBiogasPlantForPrediction.m
+startLDA.m
+startLDAforStateEstimation.m
+startStateEstimation.m
+
+
