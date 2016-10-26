@@ -1,0 +1,21 @@
+%% LOCATION
+%
+html\consetofpoints
+%
+%
+%% EXCEPTIONS
+%
+evalNDimSetForConstraints.m
+fitnessSatisfyContraints.m
+getConstrainedSpace.m
+getScalingTransformation.m
+getValidSetOfPoints.m
+plot1dLinConstraints.m
+plot2dLinConstraints.m
+plot3dLinConstraints.m
+plot4dLinConstraints.m
+plotConstraints.m
+plotPointsWithConstraints.m
+plotValidPoints.m
+
+

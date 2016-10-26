@@ -1,0 +1,14 @@
+%% LOCATION
+%
+html\consetofpoints
+%
+%
+%% EXCEPTIONS
+%
+conSetOfPoints.m
+getPointsInConstrainedDimension.m
+getPointsInFullDimension.m
+setParams.m
+validateSetForConstraints.m
+
+
