@@ -1,0 +1,304 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProductVersion>9.0.21022</ProductVersion>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{C719BB8A-BEED-478C-9896-02662F1334F2}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>plant</RootNamespace>
+    <AssemblyName>plant</AssemblyName>
+    <TargetFrameworkVersion>v3.0</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <FileUpgradeFlags>
+    </FileUpgradeFlags>
+    <OldToolsVersion>3.5</OldToolsVersion>
+    <UpgradeBackupLocation />
+    <PublishUrl>publish\</PublishUrl>
+    <Install>true</Install>
+    <InstallFrom>Disk</InstallFrom>
+    <UpdateEnabled>false</UpdateEnabled>
+    <UpdateMode>Foreground</UpdateMode>
+    <UpdateInterval>7</UpdateInterval>
+    <UpdateIntervalUnits>Days</UpdateIntervalUnits>
+    <UpdatePeriodically>false</UpdatePeriodically>
+    <UpdateRequired>false</UpdateRequired>
+    <MapFileExtensions>true</MapFileExtensions>
+    <ApplicationRevision>0</ApplicationRevision>
+    <ApplicationVersion>1.0.0.%2a</ApplicationVersion>
+    <IsWebBootstrapper>false</IsWebBootstrapper>
+    <UseApplicationTrust>false</UseApplicationTrust>
+    <BootstrapperEnabled>true</BootstrapperEnabled>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <CodeAnalysisRuleSet>AllRules.ruleset</CodeAnalysisRuleSet>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <DocumentationFile>bin\Release\plant.XML</DocumentationFile>
+    <CodeAnalysisRuleSet>AllRules.ruleset</CodeAnalysisRuleSet>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="MWArray, Version=2.11.1.0, Culture=neutral, PublicKeyToken=e1d84a0da19db86f, processorArchitecture=AMD64">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\physchem\bin\Release\MWArray.dll</HintPath>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="biogas\ADM\ADM.cs" />
+    <Compile Include="biogas\ADM\ADM1DE\ADM1DE.cs" />
+    <Compile Include="biogas\ADM\ADM1DE\ADM1DEparams.cs" />
+    <Compile Include="biogas\ADM\ADMparams.cs" />
+    <Compile Include="biogas\ADM\ADMparams_const.cs" />
+    <Compile Include="biogas\ADM\ADMstate.cs" />
+    <Compile Include="biogas\ADM\ADMstate_ADMstream.cs" />
+    <Compile Include="biogas\ADM\ADMstate_calcFromADMstate.cs" />
+    <Compile Include="biogas\ADM\ADMstate_calcOfADMstate.cs" />
+    <Compile Include="biogas\ADM\ADMstate_private.cs" />
+    <Compile Include="biogas\ADM\ADMstate_properties.cs" />
+    <Compile Include="biogas\ADM\ADM_private.cs" />
+    <Compile Include="biogas\ADM\ADM_properties.cs" />
+    <Compile Include="biogas\ADM\ADM_set.cs" />
+    <Compile Include="biogas\ADM\ADMstate_stoichiometry.cs" />
+    <Compile Include="biogas\ADM\ADM_get.cs" />
+    <Compile Include="biogas\chps\chp.cs" />
+    <Compile Include="biogas\chps\chps.cs" />
+    <Compile Include="biogas\chps\chps_get_params.cs" />
+    <Compile Include="biogas\chps\chps_properties.cs" />
+    <Compile Include="biogas\chps\chps_set_params.cs" />
+    <Compile Include="biogas\chps\chp_constructor.cs" />
+    <Compile Include="biogas\chps\chp_get_params.cs" />
+    <Compile Include="biogas\chps\chp_private.cs" />
+    <Compile Include="biogas\chps\chp_properties.cs" />
+    <Compile Include="biogas\chps\chp_set_params.cs" />
+    <Compile Include="biogas\digesters\digester.cs" />
+    <Compile Include="biogas\digesters\digesters.cs" />
+    <Compile Include="biogas\digesters\digesters_ADM.cs" />
+    <Compile Include="biogas\digesters\digesters_get_params.cs" />
+    <Compile Include="biogas\digesters\digesters_properties.cs" />
+    <Compile Include="biogas\digesters\digesters_set_params.cs" />
+    <Compile Include="biogas\digesters\digester_ADM.cs" />
+    <Compile Include="biogas\digesters\digester_constructor.cs" />
+    <Compile Include="biogas\digesters\digester_get_params.cs" />
+    <Compile Include="biogas\digesters\digester_private.cs" />
+    <Compile Include="biogas\digesters\digester_properties.cs" />
+    <Compile Include="biogas\digesters\digester_set_params.cs" />
+    <Compile Include="biogas\digesters\heating\heating.cs" />
+    <Compile Include="biogas\digesters\heating\heating_get_params.cs" />
+    <Compile Include="biogas\digesters\heating\heating_properties.cs" />
+    <Compile Include="biogas\digesters\heating\heating_set_params.cs" />
+    <Compile Include="biogas\digesters\digester_energy.cs" />
+    <Compile Include="biogas\digesters\digester_params.cs" />
+    <Compile Include="biogas\digesters\stirrers\stirrer_constructor.cs" />
+    <Compile Include="biogas\digesters\stirrers\stirrer.cs" />
+    <Compile Include="biogas\digesters\stirrers\stirrers.cs" />
+    <Compile Include="biogas\digesters\stirrers\stirrers_get_params.cs" />
+    <Compile Include="biogas\digesters\stirrers\stirrers_properties.cs" />
+    <Compile Include="biogas\digesters\stirrers\stirrers_set_params.cs" />
+    <Compile Include="biogas\digesters\stirrers\stirrer_get_params.cs" />
+    <Compile Include="biogas\digesters\stirrers\stirrer_properties.cs" />
+    <Compile Include="biogas\digesters\stirrers\stirrer_set_params.cs" />
+    <Compile Include="biogas\final_storage_tank.cs" />
+    <Compile Include="biogas\finances\eeg2009.cs" />
+    <Compile Include="biogas\finances\eeg2012.cs" />
+    <Compile Include="biogas\finances\finances.cs" />
+    <Compile Include="biogas\finances\funding.cs" />
+    <Compile Include="biogas\finances\finances_properties.cs" />
+    <Compile Include="biogas\finances\finances_set_params.cs" />
+    <Compile Include="biogas\finances\eeg2009_properties.cs" />
+    <Compile Include="biogas\finances\eeg2009_set_params.cs" />
+    <Compile Include="biogas\gas_storage\gas_storage.cs" />
+    <Compile Include="biogas\plant\plant_pumps.cs" />
+    <Compile Include="biogas\plant\plant.cs" />
+    <Compile Include="biogas\plant\plant_chp.cs" />
+    <Compile Include="biogas\plant\plant_constructor.cs" />
+    <Compile Include="biogas\plant\plant_digester.cs" />
+    <Compile Include="biogas\plant\plant_properties.cs" />
+    <Compile Include="biogas\plant\plant_set_params.cs" />
+    <Compile Include="biogas\plant\plant_substrate_transport.cs" />
+    <Compile Include="biogas\sensors\sensors_measure9.cs" />
+    <Compile Include="biogas\sensors\sensors_fitness.cs" />
+    <Compile Include="biogas\sensors\sensors_measure8.cs" />
+    <Compile Include="biogas\sensors\sensors_measure4.cs" />
+    <Compile Include="biogas\sensors\sensors_measure3.cs" />
+    <Compile Include="biogas\sensors\sensors_measure7.cs" />
+    <Compile Include="biogas\sensors\sensors_getMeasurements_special.cs" />
+    <Compile Include="biogas\sensors\sensors_get_params.cs" />
+    <Compile Include="biogas\sensors\sensors_measure_type.cs" />
+    <Compile Include="biogas\sensors\sensors_set_params.cs" />
+    <Compile Include="biogas\sensors\sensors.cs" />
+    <Compile Include="biogas\sensors\sensors_getMeasurements.cs" />
+    <Compile Include="biogas\sensors\sensors_measure.cs" />
+    <Compile Include="biogas\sensors\sensors_private.cs" />
+    <Compile Include="biogas\sensors\sensors_properties.cs" />
+    <Compile Include="biogas\sensors\sensor\AcVsPro_sensor.cs" />
+    <Compile Include="biogas\sensors\sensor\ADMintvars_sensor.cs" />
+    <Compile Include="biogas\sensors\sensor\ADMstate_sensor.cs" />
+    <Compile Include="biogas\sensors\sensor\biogas_sensor.cs" />
+    <Compile Include="biogas\sensors\sensor\biomassAciAce_sensor.cs" />
+    <Compile Include="biogas\sensors\sensor\biomassMeth_sensor.cs" />
+    <Compile Include="biogas\sensors\sensor\density_sensor.cs" />
+    <Compile Include="biogas\sensors\sensor\energyProduction_sensor.cs" />
+    <Compile Include="biogas\sensors\sensor\fitness\HRT_fit_sensor.cs" />
+    <Compile Include="biogas\sensors\sensor\fitness\gasexcess_fit_sensor.cs" />
+    <Compile Include="biogas\sensors\sensor\fitness\CH4_fit_sensor.cs" />
+    <Compile Include="biogas\sensors\sensor\fitness\AcVsPro_fit_sensor.cs" />
+    <Compile Include="biogas\sensors\sensor\fitness\udot_sensor.cs" />
+    <Compile Include="biogas\sensors\sensor\fitness\VS_COD_fit_sensor.cs" />
+    <Compile Include="biogas\sensors\sensor\fitness\SS_COD_fit_sensor.cs" />
+    <Compile Include="biogas\sensors\sensor\fitness\manurebonus_sensor.cs" />
+    <Compile Include="biogas\sensors\sensor\fitness\setpoint_fit_sensor_private.cs" />
+    <Compile Include="biogas\sensors\sensor\fitness\setpoint_fit_sensor.cs" />
+    <Compile Include="biogas\sensors\sensor\fitness\N_fit_sensor.cs" />
+    <Compile Include="biogas\sensors\sensor\fitness\gasexcess_fit_sensor_private.cs" />
+    <Compile Include="biogas\sensors\sensor\fitness\TAC_fit_sensor.cs" />
+    <Compile Include="biogas\sensors\sensor\fitness\OLR_fit_sensor.cs" />
+    <Compile Include="biogas\sensors\sensor\fitness\pH_fit_sensor.cs" />
+    <Compile Include="biogas\sensors\sensor\fitness\TS_fit_sensor.cs" />
+    <Compile Include="biogas\sensors\sensor\fitness\VFA_TAC_fit_sensor.cs" />
+    <Compile Include="biogas\sensors\sensor\fitness\VFA_fit_sensor.cs" />
+    <Compile Include="biogas\sensors\sensor\fitness_sensor.cs" />
+    <Compile Include="biogas\sensors\sensor\heatConsumption_sensor.cs" />
+    <Compile Include="biogas\sensors\sensor\HRT_sensor.cs" />
+    <Compile Include="biogas\sensors\sensor\energyProdMicro_sensor.cs" />
+    <Compile Include="biogas\sensors\sensor\ADMstream_sensor.cs" />
+    <Compile Include="biogas\sensors\sensor\ADMparams_sensor.cs" />
+    <Compile Include="biogas\sensors\sensor\aceto_hydro_sensor.cs" />
+    <Compile Include="biogas\sensors\sensor\inhibition_sensor.cs" />
+    <Compile Include="biogas\sensors\sensor\faecal_sensor.cs" />
+    <Compile Include="biogas\sensors\sensor\energyProdSum_sensor.cs" />
+    <Compile Include="biogas\sensors\sensor\Ash_sensor.cs" />
+    <Compile Include="biogas\sensors\sensor\ref_sensor.cs" />
+    <Compile Include="biogas\sensors\sensor\TKN_sensor.cs" />
+    <Compile Include="biogas\sensors\sensor\Ntot_sensor.cs" />
+    <Compile Include="biogas\sensors\sensor\Norg_sensor.cs" />
+    <Compile Include="biogas\sensors\sensor\sensor_get_params.cs" />
+    <Compile Include="biogas\sensors\sensor\sensor_set_params.cs" />
+    <Compile Include="biogas\sensors\sensor\stirrer_sensor.cs" />
+    <Compile Include="biogas\sensors\sensor\transportEnergy_sensor.cs" />
+    <Compile Include="biogas\sensors\sensor\NH3_sensor.cs" />
+    <Compile Include="biogas\sensors\sensor\NH4_sensor.cs" />
+    <Compile Include="biogas\sensors\sensor\OLR_sensor.cs" />
+    <Compile Include="biogas\sensors\sensor\pH_sensor.cs" />
+    <Compile Include="biogas\sensors\sensor\pH_stream_sensor.cs" />
+    <Compile Include="biogas\sensors\sensor\pumpEnergy_sensor.cs" />
+    <Compile Include="biogas\sensors\sensor\Q_sensor.cs" />
+    <Compile Include="biogas\sensors\sensor\Sac_sensor.cs" />
+    <Compile Include="biogas\sensors\sensor\Sbu_sensor.cs" />
+    <Compile Include="biogas\sensors\sensor\sensor.cs" />
+    <Compile Include="biogas\sensors\sensor\sensor_getMeasurements.cs" />
+    <Compile Include="biogas\sensors\sensor\sensor_measure.cs" />
+    <Compile Include="biogas\sensors\sensor\sensor_properties.cs" />
+    <Compile Include="biogas\sensors\sensor\Spro_sensor.cs" />
+    <Compile Include="biogas\sensors\sensor\SS_COD_sensor.cs" />
+    <Compile Include="biogas\sensors\sensor\substrateparams_sensor.cs" />
+    <Compile Include="biogas\sensors\sensor\substrate_sensor.cs" />
+    <Compile Include="biogas\sensors\sensor\Sva_sensor.cs" />
+    <Compile Include="biogas\sensors\sensor\TAC_sensor.cs" />
+    <Compile Include="biogas\sensors\sensor\total_biogas_sensor.cs" />
+    <Compile Include="biogas\sensors\sensor\TS_sensor.cs" />
+    <Compile Include="biogas\sensors\sensor\VFAmatrix_sensor.cs" />
+    <Compile Include="biogas\sensors\sensor\VFA_sensor.cs" />
+    <Compile Include="biogas\sensors\sensor\VFA_TAC_sensor.cs" />
+    <Compile Include="biogas\sensors\sensor\VS_COD_sensor.cs" />
+    <Compile Include="biogas\sensors\sensor\VS_sensor.cs" />
+    <Compile Include="biogas\sensors\sensor_array\sensor_array_properties.cs" />
+    <Compile Include="biogas\sensors\sensor_array\sensor_array.cs" />
+    <Compile Include="biogas\sensors\sensor_config\sensor_config.cs" />
+    <Compile Include="biogas\sensors\sensor_config\sensor_config_constructor.cs" />
+    <Compile Include="biogas\sensors\sensor_config\sensor_config_get_params.cs" />
+    <Compile Include="biogas\sensors\sensor_config\sensor_config_properties.cs" />
+    <Compile Include="biogas\sensors\sensor_config\sensor_config_set_params.cs" />
+    <Compile Include="biogas\transportation\pump_get.cs" />
+    <Compile Include="biogas\transportation\substrate_transports_set_params.cs" />
+    <Compile Include="biogas\transportation\substrate_transports_get_params.cs" />
+    <Compile Include="biogas\transportation\substrate_transports.cs" />
+    <Compile Include="biogas\transportation\transportation_substrate_transport.cs" />
+    <Compile Include="biogas\transportation\substrate_transport_properties.cs" />
+    <Compile Include="biogas\transportation\substrate_transport_constructor.cs" />
+    <Compile Include="biogas\transportation\pump.cs" />
+    <Compile Include="biogas\transportation\pumps.cs" />
+    <Compile Include="biogas\transportation\pumps_get_params.cs" />
+    <Compile Include="biogas\transportation\pumps_set_params.cs" />
+    <Compile Include="biogas\transportation\pump_constructor.cs" />
+    <Compile Include="biogas\transportation\pump_get_params.cs" />
+    <Compile Include="biogas\transportation\pump_properties.cs" />
+    <Compile Include="biogas\transportation\pump_set_params.cs" />
+    <Compile Include="biogas\transportation\substrate_transport.cs" />
+    <Compile Include="biogas\transportation\transportation.cs" />
+    <Compile Include="biogas\transportation\transportation_pump.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\biogas\biogas.csproj">
+      <Project>{4A5F4179-BBE3-47E0-A680-5AEFBFC4210B}</Project>
+      <Name>biogas</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\optim_params\optim_params.csproj">
+      <Project>{8BF0B00A-A274-4E77-88E4-6BCB39D1A01F}</Project>
+      <Name>optim_params</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\physchem\physchem.csproj">
+      <Project>{4FF73F49-E126-41A5-816E-6FB7A29A58FE}</Project>
+      <Name>physchem</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\substrates\substrates.csproj">
+      <Project>{D8C878B4-0FB8-4343-8935-66804A050949}</Project>
+      <Name>substrates</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\toolbox\toolbox.csproj">
+      <Project>{646F29F5-EC70-4388-9237-48D4E46E43DA}</Project>
+      <Name>toolbox</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="biogas\stock\" />
+    <Folder Include="biogas\substrate_preparation\" />
+    <Folder Include="biogas\wheel_loader\" />
+  </ItemGroup>
+  <ItemGroup>
+    <BootstrapperPackage Include="Microsoft.Net.Client.3.5">
+      <Visible>False</Visible>
+      <ProductName>.NET Framework 3.5 SP1 Client Profile</ProductName>
+      <Install>false</Install>
+    </BootstrapperPackage>
+    <BootstrapperPackage Include="Microsoft.Net.Framework.3.5.SP1">
+      <Visible>False</Visible>
+      <ProductName>.NET Framework 3.5 SP1</ProductName>
+      <Install>true</Install>
+    </BootstrapperPackage>
+    <BootstrapperPackage Include="Microsoft.Windows.Installer.3.1">
+      <Visible>False</Visible>
+      <ProductName>Windows Installer 3.1</ProductName>
+      <Install>true</Install>
+    </BootstrapperPackage>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="ClassDiagram1.cd" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
+</Project>

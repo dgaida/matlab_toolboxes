@@ -1,0 +1,38 @@
+<?xml version='1.0' encoding='utf-8'?>
+<project>
+  <configuration createBackupFiles="False" hideEmptyRows="False" hideTranslatedRows="False" useSpellChecker="True" neutralLanguageCode="en-US" languagesToDisplay="">
+    <globalSetting name="CreateNewFilesForm.prefixTextBox.Text">####</globalSetting>
+    <globalSetting name="CreateNewFilesForm.prefixCheckBox.Checked">False</globalSetting>
+    <globalSetting name="CreateNewFilesForm.referenceLanguageComboBox.SelectedIndex">-1</globalSetting>
+    <globalSetting name="CreateNewFilesForm.destinationLanguagesListBox">48</globalSetting>
+    <globalSetting name="CreateNewFilesForm.copyTextsCheckBox.Checked">True</globalSetting>
+    <globalSetting name="CreateNewFilesForm.automaticallyTranslateCheckBox.Checked">False</globalSetting>
+    <globalSetting name="AddNewFileGroupForm.destinationLanguagesListBox">0;48</globalSetting>
+    <globalSetting name="AddNewFileGroupForm.extensionComboBoxEdit">0</globalSetting>
+    <globalSetting name="AddNewFileGroupForm.baseFolderTextEdit.Text">D:\wissMitarbeiter\project_biogas\Bibliothek\trunk\library\biogas\c#\guis\guis\Resources</globalSetting>
+    <globalSetting name="AddNewFileGroupForm.baseFileNameTextEdit.Text">strings</globalSetting>
+    <globalSetting name="Filter-ResourceEditorGrid">&lt;XtraSerializer version="1.0" application="View"&gt;
+  &lt;property name="#LayoutVersion" /&gt;
+  &lt;property name="ActiveFilterString" /&gt;
+&lt;/XtraSerializer&gt;</globalSetting>
+    <globalSetting name="Sort-ResourceEditorGrid">&lt;XtraSerializer version="1.0" application="View"&gt;
+  &lt;property name="#LayoutVersion" /&gt;
+&lt;/XtraSerializer&gt;</globalSetting>
+    <globalSetting name="projectMruItems">&lt;?xml version='1.0' encoding='utf-8'?&gt;&lt;items&gt;&lt;item type="2" checksum="2927665377" /&gt;&lt;/items&gt;</globalSetting>
+    <userSetting name="Daniel@Daniel-PC.filesInitialDir">D:\wissMitarbeiter\project_biogas\Bibliothek\trunk\library\biogas\c#\guis\guis\Resources</userSetting>
+    <userSetting name="Daniel@Daniel-PC.FindText">
+    </userSetting>
+    <userSetting name="Daniel@Daniel-PC.RecentFiles">D:\wissMitarbeiter\project_biogas\Bibliothek\trunk\library\biogas\c#\guis\guis\Resources\strings.resx;D:\wissMitarbeiter\project_biogas\Bibliothek\trunk\library\biogas\c#\guis\guis\Resources\strings.de-DE.resx</userSetting>
+    <description>
+    </description>
+  </configuration>
+  <fileGroups>
+    <fileGroup name="" projectFolderUniqueID="00000000-0000-0000-0000-000000000000" orderPosition="0" ignoreDuringExportAndImport="False" uniqueID="509ea949-953c-445c-abf7-0af26be28fa6">
+      <file filePath="guis\Resources\strings.resx" absoluteFilePath="D:\wissMitarbeiter\project_biogas\Bibliothek\trunk\library\biogas\c#\guis\guis\Resources\strings.resx" uniqueID="6b9d13b5-0f66-416f-9d0c-73a61186586d" />
+      <file filePath="guis\Resources\strings.de-DE.resx" absoluteFilePath="D:\wissMitarbeiter\project_biogas\Bibliothek\trunk\library\biogas\c#\guis\guis\Resources\strings.de-DE.resx" uniqueID="6e53c158-e944-4427-ab84-60ad7ab43565" />
+      <remarks>
+      </remarks>
+    </fileGroup>
+  </fileGroups>
+  <projectFolders />
+</project>
