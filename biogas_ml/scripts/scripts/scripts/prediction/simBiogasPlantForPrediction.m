@@ -24,38 +24,38 @@ checkArgument(plant_id, 'plant_id', 'char', '1st');
 %%
 %
 
-if nargin > 1 && ~isempty(varargin{1})
-  parallel= varargin{1};
+if nargin > 1 && ~isempty(varargin{1}) 
+  parallel= varargin{1}; % do we run simulations in parallel or on a cluster
   validatestring(parallel, {'none', 'multicore', 'cluster'}, mfilename, 'parallel', 2);
 else
-  parallel= 'none'; 
+  parallel= 'none';     % default: simulations are run one after the other
 end
 
 %%
 %
 
 if nargin > 2 && ~isempty(varargin{2})
-  nWorker= varargin{2};
+  nWorker= varargin{2};   % number of workers (multicore) or PCs (cluster)
   isN(nWorker, 'nWorker', 3);
 else
   nWorker= 2;
 end
 
-if strcmp(parallel, 'none')
+if strcmp(parallel, 'none') % if no parallel computation set worker to 1
   nWorker= 1;
 end
 
 %%
 
 if nargin > 3 && ~isempty(varargin{3}), 
-  n_simulations= varargin{3}; 
+  n_simulations= varargin{3};   % number of simulations
   isN(n_simulations, 'n_simulations', 4);
 else
   n_simulations= 7; % 
 end
 
 if nargin > 4 && ~isempty(varargin{4}), 
-  timespan= varargin{4}; 
+  timespan= varargin{4};    % duration of one simulation in days
   checkArgument(timespan, 'timespan', 'double', 5);
 else
   timespan= [0 950]; % in days
