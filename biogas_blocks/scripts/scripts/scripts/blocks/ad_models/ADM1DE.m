@@ -205,11 +205,11 @@ function sys=mdlDerivatives(t,x,u, plant, substrate, substrate_network, ...
 
 %sys= calcADM1Deriv(t, x, u, fermenter_id, plant, substrate, substrate_network, sensors);
 
-x(19)= max(x(19),0);       % Xfa
-x(21)= max(x(21),0);       % Xpro
-x(22)= max(x(22),0);       % Xac
-x(32)= max(x(32),0);       % Shco3
-x(33)= max(x(33),0);       % Snh3
+% x(19)= max(x(19),0);       % Xfa
+% x(21)= max(x(21),0);       % Xpro
+% x(22)= max(x(22),0);       % Xac
+% x(32)= max(x(32),0);       % Shco3
+% x(33)= max(x(33),0);       % Snh3
 
 
 x_net= NET.convertArray(x, 'System.Double', numel(x));
@@ -224,6 +224,15 @@ catch ME
 end
 
 sys= double(sys)';
+
+%% 
+% constraint
+%
+% wenn x == 0, dann setze xdot auf null, allerdings nur für die betreffende
+% Zustandsvektorkomponente.
+%
+%sys= sys - ( ( x <= 0 ) & ( sys < 0 ) ) .* sys; 
+
 
 
       
