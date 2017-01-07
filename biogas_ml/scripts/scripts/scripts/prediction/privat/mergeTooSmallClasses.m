@@ -44,9 +44,9 @@ while(dowhile)
 
     %%
     
-    class_id= class_id - 1;
+    class_id= class_id - 1;     % because yclass is 0-based
 
-    my_bins= my_bins - 1;
+    my_bins= my_bins - 1;       % because we are going to merge one class
 
     %%
     

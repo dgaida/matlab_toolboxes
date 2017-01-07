@@ -176,6 +176,7 @@ if existMPfile('cmaes')
     population= u0';
     out= [];
     bestever.x= u;
+    bestever.f= fitness;
 
   end
 

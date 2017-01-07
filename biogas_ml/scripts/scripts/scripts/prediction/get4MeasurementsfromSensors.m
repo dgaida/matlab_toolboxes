@@ -52,7 +52,7 @@ if sim_obj
   % hole die zeit aus irgendeiner variablen, zeit ist überall gleich
   ts= double( sensors.getTimeStream() )';
 else
-  ts= sensors.time;
+  ts= sensors.(char(plant.getDigesterID(1))).time;
 end
 
 %%
@@ -81,7 +81,9 @@ for idigester= 1:n_fermenter
     pHs= sensors.getMeasurementStream(['pH_', id_fermenter, '_3'], noisy);
     pHs= double(pHs)';
   else
-    pHs= sensors.pH;
+    %% TODO: for all digesters we are passing the same ph value. this cannot be!!!
+    %% ERROR - should be solved
+    pHs= sensors.(id_fermenter).pH;
   end
   %obj_simulator.measurements.(id_fermenter).out.pH(2,:)';
   % add random noise
@@ -101,7 +103,9 @@ for idigester= 1:n_fermenter
   if sim_obj
     ch4s= double( sensors.getMeasurementStream(['biogas_', id_fermenter], '', 'CH4_%', noisy) )';
   else
-    ch4s= sensors.ch4;
+    %% TODO: for all digesters we are passing the same ch4 value. this cannot be!!!
+    %% ERROR
+    ch4s= sensors.(id_fermenter).ch4;
   end
   
   %% TODO
@@ -119,7 +123,9 @@ for idigester= 1:n_fermenter
   if sim_obj
     co2s= double( sensors.getMeasurementStream(['biogas_', id_fermenter], '', 'CO2_%', noisy) )';
   else
-    co2s= sensors.co2;
+    %% TODO: for all digesters we are passing the same co2 value. this cannot be!!!
+    %% ERROR
+    co2s= sensors.(id_fermenter).co2;
   end
   
   %% TODO
@@ -137,7 +143,9 @@ for idigester= 1:n_fermenter
   if sim_obj
     ch4ps= double( sensors.getMeasurementStream(['biogas_', id_fermenter], '', 'biogas_m3_d', noisy) )';
   else
-    ch4ps= sensors.biogas;
+    %% TODO: for all digesters we are passing the same biogas value. this cannot be!!!
+    %% ERROR
+    ch4ps= sensors.(id_fermenter).biogas;
   end
   
   %% TODO

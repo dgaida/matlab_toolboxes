@@ -251,7 +251,7 @@ close_biogas_system('plant_gummersbach');
 %% TODOs
 % # make example run
 % # check code a little bit
-% # make TODOs, especially randn/rand
+% # make TODOs, especially randn/rand (not needed anymore)
 %
 %% <<AuthorTag_DG/>>
 

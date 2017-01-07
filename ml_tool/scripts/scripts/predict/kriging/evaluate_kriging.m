@@ -9,7 +9,7 @@ function [X, Y, Z, Fitness, model, varargout]= ...
 %%
 
 error( nargchk(2, 5, nargin, 'struct') );
-error( nargoutchk(0, 6, nargout, 'struct') );
+error( nargoutchk(0, 8, nargout, 'struct') );
 
 %%
 % read out varargin
@@ -115,7 +115,7 @@ end
 %%
 % prepare to plot
 
-if N_inputs <= 3
+%if N_inputs <= 3
 
   %%
   %
@@ -147,8 +147,12 @@ if N_inputs <= 3
   %%
   % predict over grid
 
-  [Fitness_grid]= predictor(X_grid, model);
-
+  try
+   [Fitness_grid]= predictor(X_grid, model);
+  catch ME
+    Fitness_grid= NaN;
+  end
+  
   %%
   % gilt nur für max 3 inputs
 
@@ -173,16 +177,20 @@ if N_inputs <= 3
   %%
   % gilt nur für 1 output
 
-  Fitness= reshape(Fitness_grid(:,1), grid_vec );
-
-else
-
-  X= [];
-  Y= [];
-  Z= [];
-  Fitness= [];
-
-end
+  if ~isnan(Fitness_grid)
+    Fitness= reshape(Fitness_grid(:,1), grid_vec );
+  else
+    Fitness= NaN;
+  end
+  
+% else
+% 
+%   X= [];
+%   Y= [];
+%   Z= [];
+%   Fitness= [];
+% 
+% end
 
 %%
 %
@@ -191,6 +199,14 @@ varargout= [];
 
 if nargout >= 6
   varargout{1}= fit_kriging;
+end
+
+if nargout >= 7
+  varargout{2}= X_grid;
+end
+
+if nargout >= 8
+  varargout{3}= Fitness_grid;
 end
 
 %%

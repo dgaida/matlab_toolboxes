@@ -59,7 +59,7 @@ end
 %%
 % now minus 30 days, max_filter is 31 days, so we need more than 30 days
 
-numdays= 35;      % number of days we look into the past
+numdays= 40;      % number of days we look into the past
 
 dateStart= datestr(now() - numdays, 'yyyy-mm-dd HH:MM:SS');
 
@@ -157,11 +157,19 @@ for idigester= 1:2
 
   minlen= min([length(t) length(pH) length(co2) length(ch4) length(ch4p)]);% length(ch4p1)]);
 
-  pH= pH(1:minlen);
-  t= t(1:minlen);
-  co2= co2(1:minlen);
-  ch4= ch4(1:minlen);
-  ch4p= ch4p(1:minlen);
+  %pH= pH(1:minlen);
+  %t= t(1:minlen);
+  %co2= co2(1:minlen);
+  %ch4= ch4(1:minlen);
+  %ch4p= ch4p(1:minlen);
+  
+  % get the most recent data. as t(1) is zero, we have to get the data from the end
+  pH= pH(end - (minlen-1):end);
+  t= t(end - (minlen-1):end);
+  t= t-t(1);
+  co2= co2(end - (minlen-1):end);
+  ch4= ch4(end - (minlen-1):end);
+  ch4p= ch4p(end - (minlen-1):end);
   
   %%
   

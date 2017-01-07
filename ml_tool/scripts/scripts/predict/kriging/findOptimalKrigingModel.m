@@ -150,7 +150,7 @@ switch (method)
 
   case 'PSO'
 
-      [u, fitness, varargout]= startPSO(ObjectiveFunction, dim, ...
+      [u, fitness, varargou]= startPSO(ObjectiveFunction, dim, ...
                                    LB, ...
                                    UB, [], pop_size, ...
                                    nGenerations, 60*60*14, 1e-99, ...
@@ -160,7 +160,7 @@ switch (method)
 
   case 'CMAES'          
 
-      [u, varargout]= startCMAES(ObjectiveFunction, ...
+      [u, varargou]= startCMAES(ObjectiveFunction, ...
                                    [], LB, UB, pop_size, ...
                                    nGenerations, parallel, nWorker);                             
 
@@ -182,7 +182,7 @@ theta_opt= u;
 
 %%
 
-
+varargout= {varargou};
 
 %%
 %

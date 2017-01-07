@@ -21,21 +21,29 @@
 % Source Administrator dialog box. Select MS Access Database...
 %
 %% Syntax
-%       writeInDatabase(database_name, data, table_headline)
-%       writeInDatabase(database_name, data, table_headline, postgresql) 
-%       writeInDatabase(database_name, data, table_headline, postgresql,
-%       writeDatum) 
+%       writeInDatabase(database_name, table_name, data, table_headline)
+%       writeInDatabase(database_name, table_name, data, table_headline,
+%       postgresql)  
+%       writeInDatabase(database_name, table_name, data, table_headline,
+%       postgresql, writeDatum) 
 %
 %% Description
-% |writeInDatabase(database_name, data, table_headline)| writes the given
-% double vector |data| in the postgreSQL database |database_name|. 
+% |writeInDatabase(database_name, table_name, data, table_headline)| writes
+% the given double vector |data| in the postgreSQL database
+% |database_name|. The datatype of the created table |table_name| is float. 
 %
-% If the table 'Substrate_mixture' does not exist or if we cannot write the
+% If the table |table_name| does not exist or if we cannot write the
 % |data| in the table (because of different number of rows) the table is
 % created first. 
 %
+% User and password of database must be 'gecouser' and 'geco' for
+% |postgresql == 1| and both empty for MS SQL. 
+%
 %%
 % @param |database_name| : char with the name of the database
+%
+%%
+% @param |table_name| : char with the name of the table
 %
 %%
 % @param |data| : double data vector
@@ -52,7 +60,12 @@
 %%
 % @param |writeDatum| : 0 or 1
 %
-% * 1 : write date in first column of table
+% * 1 : write date in first column of table. 
+% If you want to have date/time in first column then do not write the date
+% in |data| and neither in |table_headline|
+% WARNING: If |postgresql == 1|
+% then the first column of |data| is deleted at the moment. Do not know
+% why! 
 % * 0 : do not write data in first column of table
 %
 %% Examples
@@ -62,12 +75,13 @@
 data= [1,2,3];
 table_headline= {'one', 'two', 'three'};
 
-Datum= m2xdate(now);
-data= [Datum, data];
+% that's wrong
+% Datum= m2xdate(now);
+% data= [Datum, data];
+% 
+% table_headline= [{'Datum'}, table_headline];
 
-table_headline= [{'Datum'}, table_headline];
-
-writeInDatabase('equilibria_sunderhook_costs', data, table_headline);
+writeInDatabase('postgres', 'mydata', data, table_headline);
 
 %% Dependencies
 %

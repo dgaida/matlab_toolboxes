@@ -67,6 +67,13 @@ end
 
 %%
 
+%% WARNING
+% although we pass fermenter_id here, sensors must contain measurement data
+% from both digesters. That's because we assume that the state of one
+% digester may also be depend on the measured data at the other digester.
+% E.g. the state of the post digester may be dependent on the state of the
+% primary digester
+
 [data]= createDataSetForPredictor(sensors, plant, fermenter_id);
 
 if isempty(data)

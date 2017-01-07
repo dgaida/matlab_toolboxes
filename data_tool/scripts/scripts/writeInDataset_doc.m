@@ -2,6 +2,8 @@
 %       dataAnalysis= writeInDataset(database_name, data, table_headline)
 %       dataAnalysis= writeInDataset(database_name, data, table_headline,
 %       appendData) 
+%       dataAnalysis= writeInDataset(database_name, data, table_headline,
+%       appendData, writeDatum) 
 %
 %% Description
 % |dataAnalysis= writeInDataset(database_name, data, table_headline)| writes given double
@@ -10,7 +12,8 @@
 % file and the data is appended to the dataset, then the file is saved again.
 % The data only can be appended, when the dimension of the given dataset
 % is the same as the given |data|, else the existing dataset is
-% overwritten. 
+% overwritten. Per deafult, as first column the current date/time is added,
+% see the parameter |writeDatum|. 
 %
 % This function is an alternative to saving data in a database when the
 % commercial MATLAB Database Toolbox is not available (same hold for the
@@ -42,6 +45,15 @@
 % * 0 : do not append given data
 % * 1 : append given data to already existing dataset, if possible
 % (default) 
+%
+%%
+% @param |writeDatum| : 0 or 1
+%
+% * 1 : write date in first column of dataset. 
+% If you want to have date/time in first column then do not write the date
+% in |data| and neither in |table_headline|, both are added in this
+% function. (Default)
+% * 0 : do not write date in first column of dataset.
 %
 %% Examples
 % 

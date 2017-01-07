@@ -8,6 +8,13 @@ function [dataset, stream]= createDataSetForPredictor(sensors, ...
                   
 %%
 
+%% WARNING
+% although we pass fermenter_id here, sensors must contain measurement data
+% from both digesters. That's because we assume that the state of one
+% digester may also be depend on the measured data at the other digester.
+% E.g. the state of the post digester may be dependent on the state of the
+% primary digester
+
 error( nargchk(3, 9, nargin, 'struct') );
 error( nargoutchk(0, 2, nargout, 'struct') );
 
@@ -183,7 +190,7 @@ if sim_obj
   
 else
   
-  ts= sensors.time;
+  ts= sensors.(char(plant.getDigesterID(1))).time;
     
 end
 
@@ -193,6 +200,8 @@ if max(ts) <= min(ts)
   dataset= [];
   stream= [];
 
+  dispMessage('max(ts) <= min(ts)', mfilename);
+  
   return;
 end
 
@@ -239,6 +248,8 @@ if max_filter - 1 >= size(t,1)
   dataset= [];
   %warning('time length is to short!');
 
+  dispMessage('max_filter - 1 >= size(t,1)', mfilename);
+  
   return;
 end
 
@@ -326,19 +337,17 @@ end
 % 7*24h/6h= 28 stellen... den rest (damit alle vektoren gleich lang sind)
 % muss man dann am ende abschneiden...
 
+% we just want to have the last value here, becasue that is the current
+% value
+max_filter= numel(t);
+
 pH(  1:max_filter - 1, :)= [];
 ch4( 1:max_filter - 1, :)= [];
 ch4p(1:max_filter - 1, :)= [];
 co2( 1:max_filter - 1, :)= [];
 
-for ifilter= 1:n_filter
+%%
 
-  pH_mean.(  char(filter_char(1, ifilter)))(1:max_filter - 1, :)= [];
-  ch4_mean.( char(filter_char(1, ifilter)))(1:max_filter - 1, :)= [];
-  ch4p_mean.(char(filter_char(1, ifilter)))(1:max_filter - 1, :)= [];
-  co2_mean.( char(filter_char(1, ifilter)))(1:max_filter - 1, :)= [];
-
-end
 
 
 
@@ -359,7 +368,7 @@ if sim_obj
 
   end
 else
-  obj_fieldnames= fieldnames(sensors.Q);
+  obj_fieldnames= fieldnames(sensors.(char(plant.getDigesterID(1))).Q);
 end
 
 n_substrate= numel(obj_fieldnames); %size(substrate.ids, 2);
@@ -393,7 +402,7 @@ for isubstrate= 1:n_substrate
   if sim_obj
     data= double( sensors.getMeasurementStream('Q', ['Q_', substrate_id], noisy) );
   else
-    data= sensors.Q.(substrate_id)';
+    data= sensors.(char(plant.getDigesterID(1))).Q.(substrate_id)';
   end
   
   %% TODO
@@ -406,7 +415,7 @@ for isubstrate= 1:n_substrate
     %cur_grid= obj_simulator.substrate.t_q.(substrate_id);
     cur_grid= double( sensors.getTimeStream('Q', ['Q_', substrate_id]) );
   else
-    cur_grid= sensors.t_q.(substrate_id)';
+    cur_grid= sensors.(char(plant.getDigesterID(1))).t_q.(substrate_id)';
   end
   
   volFlow(:,isubstrate)= resampleData(data, cur_grid, t')';
@@ -481,7 +490,7 @@ for idigester= 1:n_fermenter
   for ifilter= 1:n_filter
 
     X(:, 1 + ifilter + (n_filter + 2)*n_meas*(idigester - 1))= ...
-        pH_mean.(char(filter_char(1, ifilter)))(:,idigester);
+        pH_mean.(char(filter_char(1, ifilter)))(end,idigester);
 
   end
   
@@ -491,8 +500,8 @@ for idigester= 1:n_fermenter
   window= filter_num(1, 2);
 
   X(:, 2 + n_filter + (n_filter + 2)*n_meas*(idigester - 1))= ...
-        [pH_mean.(char(filter_char(1, 2)))(1,idigester) .* ones(window, 1); ...
-         pH_mean.(char(filter_char(1, 2)))(1:end-window,idigester)];
+        ...[pH_mean.(char(filter_char(1, 2)))(1,idigester) .* ones(window, 1); ...
+         pH_mean.(char(filter_char(1, 2)))(end-window,idigester);%];
 
   %%
 
@@ -513,7 +522,7 @@ for idigester= 1:n_fermenter
   for ifilter= 1:n_filter
 
     X(:, 3 + n_filter + ifilter + (n_filter + 2)*n_meas*(idigester - 1))= ...
-        ch4p_mean.(char(filter_char(1, ifilter)))(:,idigester);
+        ch4p_mean.(char(filter_char(1, ifilter)))(end,idigester);
 
   end
 
@@ -523,8 +532,8 @@ for idigester= 1:n_fermenter
   window= filter_num(1, 2);
 
   X(:, 4 + 2*n_filter + (n_filter + 2)*n_meas*(idigester - 1))= ...
-        [ch4p_mean.(char(filter_char(1, 2)))(1,idigester) .* ones(window, 1); ...
-         ch4p_mean.(char(filter_char(1, 2)))(1:end-window,idigester)];
+        ...[ch4p_mean.(char(filter_char(1, 2)))(1,idigester) .* ones(window, 1); ...
+         ch4p_mean.(char(filter_char(1, 2)))(end-window,idigester);%];
 
   %%
 
@@ -545,7 +554,7 @@ for idigester= 1:n_fermenter
   for ifilter= 1:n_filter
 
     X(:, 5 + 2*n_filter + ifilter + (n_filter + 2)*n_meas*(idigester - 1))= ...
-        ch4_mean.(char(filter_char(1, ifilter)))(:,idigester);
+        ch4_mean.(char(filter_char(1, ifilter)))(end,idigester);
 
   end
 
@@ -555,8 +564,8 @@ for idigester= 1:n_fermenter
   window= filter_num(1, 2);
 
   X(:, 6 + 3*n_filter + (n_filter + 2)*n_meas*(idigester - 1))= ...
-        [ch4_mean.(char(filter_char(1, 2)))(1,idigester) .* ones(window, 1); ...
-         ch4_mean.(char(filter_char(1, 2)))(1:end-window,idigester)];
+        ...[ch4_mean.(char(filter_char(1, 2)))(1,idigester) .* ones(window, 1); ...
+         ch4_mean.(char(filter_char(1, 2)))(end-window,idigester);%];
 
   %%
   % co2 content in the biogas
@@ -566,7 +575,7 @@ for idigester= 1:n_fermenter
   for ifilter= 1:n_filter
 
     X(:, 7 + 3*n_filter + ifilter + (n_filter + 2)*n_meas*(idigester - 1))= ...
-        co2_mean.(char(filter_char(1, ifilter)))(:,idigester);
+        co2_mean.(char(filter_char(1, ifilter)))(end,idigester);
 
   end
 
@@ -576,12 +585,25 @@ for idigester= 1:n_fermenter
   window= filter_num(1, 2);
 
   X(:, 8 + 4*n_filter + (n_filter + 2)*n_meas*(idigester - 1))= ...
-        [co2_mean.(char(filter_char(1, 2)))(1,idigester) .* ones(window, 1); ...
-         co2_mean.(char(filter_char(1, 2)))(1:end-window,idigester)];
+        ...[co2_mean.(char(filter_char(1, 2)))(1,idigester) .* ones(window, 1); ...
+         co2_mean.(char(filter_char(1, 2)))(end-window,idigester);%];
 
   %%
   
 end
+
+%%
+
+for ifilter= 1:n_filter
+
+  pH_mean.(  char(filter_char(1, ifilter)))(1:max_filter - 1, :)= [];
+  ch4_mean.( char(filter_char(1, ifilter)))(1:max_filter - 1, :)= [];
+  ch4p_mean.(char(filter_char(1, ifilter)))(1:max_filter - 1, :)= [];
+  co2_mean.( char(filter_char(1, ifilter)))(1:max_filter - 1, :)= [];
+
+end
+
+
 
 
 %%

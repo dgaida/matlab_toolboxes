@@ -25,7 +25,7 @@ if nargout >= 1
   varargout{1}= sprintf('%s - %s: %s', datestr(now), mscriptname, message);
 else
   fprintf('%s - %s: %s\n', datestr(now), mscriptname, message);
-  varargout= [];
+  varargout= {};
 end
 
 %%

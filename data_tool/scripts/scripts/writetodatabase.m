@@ -233,6 +233,9 @@ end
 
 %%
 
+data_db= data;
+table_headline_db= table_headline;
+
 if writeDatum == 1
 
   Datum= m2xdate(now);
@@ -253,7 +256,12 @@ if ( writetodb == 1 )
 
     %%
     
-    writeInDatabase(database_name, data, table_header, table_headline, ...
+    %% OK is solved now
+    %% TODO: ERROR: table_header does not exist at all, how should this work????
+    %% writeInDatabase is not called correctly, may not be called with both 
+    % arguments table_header, table_headline
+    writeInDatabase(database_name, 'Substrate_mixture', data_db, ...table_header, 
+                    table_headline_db, ...
                     postgresql, writeDatum);
     
     %%
@@ -283,7 +291,7 @@ end % writetodb == 1
 
 %%
 
-writeInDataset(database_name, data, table_headline, appendData);
+writeInDataset(database_name, data, table_headline, appendData, writeDatum);
 
 
 %%

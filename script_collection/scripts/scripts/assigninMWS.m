@@ -93,7 +93,7 @@ end
 if nargout >= 1
   varargout{1}= mybdroot;
 else
-  varargout= [];
+  varargout= {};
 end
 
 %%

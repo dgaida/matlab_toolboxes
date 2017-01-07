@@ -7,7 +7,7 @@ function dataAnalysis= writeInDataset(database_name, data, ...
 
 %%
 
-error( nargchk(3, 4, nargin, 'struct') );
+error( nargchk(3, 5, nargin, 'struct') );
 error( nargoutchk(0, 1, nargout, 'struct') );
 
 %%
@@ -16,6 +16,13 @@ if nargin >= 4 && ~isempty(varargin{1}),
   appendData= varargin{1}; 
 else
   appendData= 1; 
+end
+
+if nargin >= 5 && ~isempty(varargin{2})
+  writeDatum= varargin{2};
+  is0or1(writeDatum, 'writeDatum', 5);
+else
+  writeDatum= 1;
 end
 
 %%
@@ -51,6 +58,17 @@ if exist('dataset', 'file') == 2
   
   datas= dataset( {data(1), char(table_headline{1})} );
 
+  % add date as first column
+  if writeDatum
+    dataDate= dataset( {datestr(now), 'date'} );
+    
+    try
+      datas= horzcat(dataDate, datas);
+    catch ME
+      rethrow(ME);
+    end
+  end
+  
   %%
   
   for idb= 2:size(data,2)
