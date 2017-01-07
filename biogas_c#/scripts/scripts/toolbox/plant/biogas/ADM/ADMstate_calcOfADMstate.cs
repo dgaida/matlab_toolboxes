@@ -205,7 +205,7 @@ namespace biogas
     /// <returns>NH4 in given unit</returns>
     /// <exception cref="exception">Conversion error</exception>
     /// <exception cref="exception">Unknown unit</exception>
-    public static physValue calcNH4(double[] x, string digester_id, plant myPlant, string unit)
+    public static physValue calcNH4p(double[] x, string digester_id, plant myPlant, string unit)
     {
       // NH4 in kmolN/m^3
       double NH4= calcNH4(x, digester_id, myPlant);
@@ -1180,7 +1180,7 @@ namespace biogas
       StringBuilder sb = new StringBuilder();
       
       sb.Append("  pH= " + calcPHOfADMstate(x).ToString("0.00") + "\t\t\t");
-      sb.Append("NH4= " + calcNH4(x, digester_id, myPlant, "g/l").printValue() + "\n");
+      sb.Append("NH4= " + calcNH4p(x, digester_id, myPlant, "g/l").printValue() + "\n");
 
       sb.Append("  VFA/TA= " + calcFOSTACOfADMstate(x).printValue() + "\t\t\t");
       sb.Append("TA= " + calcTACOfADMstate(x, "gCaCO3eq/l").printValue() + "\t\t\t");
@@ -1204,6 +1204,58 @@ namespace biogas
       sb.Append("Qgas= " + qgas.printValue("0.00") + "\n");
 
       return sb.ToString();
+    }
+
+    /// <summary>
+    /// Print state values to a string, to be displayed on a console
+    /// </summary>
+    /// <param name="x"></param>
+    /// <param name="digester_id"></param>
+    /// <param name="myPlant"></param>
+    /// <param name="pH"></param>
+    /// <param name="NH4"></param>
+    /// <param name="VFATA"></param>
+    /// <param name="VFA"></param>
+    /// <param name="TA"></param>
+    /// <param name="Sac"></param>
+    /// <param name="Sbu"></param>
+    /// <param name="Spro"></param>
+    /// <param name="Sva"></param>
+    /// <param name="gas_h2"></param>
+    /// <param name="gas_ch4"></param>
+    /// <param name="gas_co2"></param>
+    /// <param name="gas"></param>
+    /// <returns></returns>
+    public static string printAndReturn(double[] x, string digester_id, plant myPlant, 
+      out double pH, out double NH4, out double VFATA, out double VFA, out double TA,
+      out double Sac, out double Sbu, out double Spro, out double Sva, out double gas_h2, 
+      out double gas_ch4, out double gas_co2, out double gas)
+    {
+      pH= calcPHOfADMstate(x);
+      NH4= calcNH4p(x, digester_id, myPlant, "g/l").Value;
+
+      VFATA= calcFOSTACOfADMstate(x).Value;
+      TA= calcTACOfADMstate(x, "gCaCO3eq/l").Value;
+      VFA= calcVFAOfADMstate(x, "gHAceq/l").Value;
+
+      Sac= calcFromADMstate(x, "Sac", "g/l").Value;
+      Sbu= calcFromADMstate(x, "Sbu", "g/l").Value;
+      Spro= calcFromADMstate(x, "Spro", "g/l").Value;
+      Sva= calcFromADMstate(x, "Sva", "g/l").Value;
+
+      physValue T = myPlant.getDigesterByID(digester_id).get_params_of("T");
+      physValue V = myPlant.getDigesterByID(digester_id).get_params_of("Vliq");
+
+      physValue qgas_h2, qgas_ch4, qgas_co2, qgas;
+
+      calcBiogasOfADMstate(x, V, T, out qgas_h2, out qgas_ch4, out qgas_co2, out qgas);
+
+      gas_h2 = qgas_h2.Value;
+      gas_ch4 = qgas_ch4.Value;
+      gas_co2 = qgas_co2.Value;
+      gas = qgas.Value;
+
+      return print(x, digester_id, myPlant);
     }
 
 
