@@ -18,14 +18,18 @@ if nargin >= 10 && ~isempty(varargin{1})
   n_filter_out= varargin{1};
   isN(n_filter_out, 'n_filter_out', 10);
 else
-  n_filter_out= 7;
+  %% TODO: Wert hängt von filter_num_out ab, wird erst in createDataSetForPredictor erstellt, sollte
+  % schon vorher definiert werden. bspw. in: simBiogasPlantForPrediction.m 
+  n_filter_out= 10;%7;
 end
 
 if nargin >= 11 && ~isempty(varargin{2})
   n_filter_in= varargin{2};
   isN(n_filter_in, 'n_filter_in', 11);
 else
-  n_filter_in= 5;
+  %% TODO: Wert hängt von filter_num_in ab, wird erst in createDataSetForPredictor erstellt, sollte
+  % schon vorher definiert werden. bspw. in: simBiogasPlantForPrediction.m
+  n_filter_in= 9;%5;
 end
 
 

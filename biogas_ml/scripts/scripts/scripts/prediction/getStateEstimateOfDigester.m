@@ -136,6 +136,14 @@ for component_id= 1:size(x_hat, 1)
       rf_model= load_file(filename, [], 'RF');
 
       %%
+      % scale data
+      % this file is created in startMethodforStateEstimation
+      
+      load(sprintf('minmaxScaleLimits_%s_var%02i.mat', fermenter_id, component_id));
+      
+      featurevector= scale_Data(featurevector, lowLimit, maxLimit);
+      
+      %%
 
       no_classes= rf_model.nclass;
 
@@ -154,6 +162,14 @@ for component_id= 1:size(x_hat, 1)
 
       no_classes= size(ClassMeanMs.(fermenter_id).(component), 1);
 
+      %%
+      % scale data
+      % this file is created in startMethodforStateEstimation
+      
+      load(sprintf('minmaxScaleLimits_%s_var%02i.mat', fermenter_id, component_id));
+      
+      featurevector= scale_Data(featurevector, lowLimit, maxLimit);
+      
       %%
       
       classValue= LDA_lin_classifier(featurevector, no_classes, ...

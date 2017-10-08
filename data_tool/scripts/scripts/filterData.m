@@ -79,7 +79,11 @@ if strcmp(deviation, 'mad')
       data_filter= data;
       return;
     else
-      error('median absolute deviation of data is zero, do not know why!');
+       % since we use mad above, mad can be 0 although min and max != 0,
+        % then we cannot filter the data, so all data is valid
+      warning('median absolute deviation of data is zero, do not know why!');
+      data_filter= data;
+      return;
     end
   end
   

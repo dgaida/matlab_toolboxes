@@ -143,7 +143,7 @@ end
 if find_entry(tasks, 'estimate')
   
   startStateEstimation(plant_id, parallel, nWorker, methods, sample_times, {[0, 0, 0, 0]}, ...
-    0, 10); % do with 10 classes
+    0, 10); % do with 10 classes, for regression -1
 
 end
 

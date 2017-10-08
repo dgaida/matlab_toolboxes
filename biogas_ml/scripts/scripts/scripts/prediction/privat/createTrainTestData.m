@@ -1,15 +1,16 @@
 %% createTrainTestData
 % Split given dataset into train- and testdataset. 
 %
-function [traindata, testdata]= ...
+function [traindata, testdata, valdata, lowLimit, maxLimit]= ...
          createTrainTestData(dataset, dataset_test, ...
-                             cutting_points_test, cutter, itest)
+                             cutting_points_test, cutter, itest, IDXkm, icluster, ...
+                             numsamples)
 %% Release: 1.7
 
 %%
 
-error( nargchk(5, 5, nargin, 'struct') );
-error( nargoutchk(0, 2, nargout, 'struct') );
+error( nargchk(8, 8, nargin, 'struct') );
+error( nargoutchk(0, 5, nargout, 'struct') );
 
 %%
 % check arguments
@@ -19,6 +20,12 @@ checkArgument(dataset_test, 'dataset_test', 'double', '2nd');
 checkArgument(cutting_points_test, 'cutting_points_test', 'cell', '3rd');
 checkArgument(cutter, 'cutter', 'double', '4th');
 isN(itest, 'itest', 5);
+
+% numsamples is the number of all samples in the original dataset. the
+% dataset given to this function could just contain the samples that belong
+% to cluster icluster. to properly create the split of testdata_cutter we
+% need to know the complete numberof samples
+isN(numsamples, 'numsamples', 8);
 
 %%
 
@@ -111,8 +118,30 @@ else
 
   cutting_pp= cutting_points_test{itest};
   
-  testdata_cutter= zeros(size(dataset,1), 1);
+  testdata_cutter= zeros(numsamples, 1);
+  
+  train_simulations= 1:numel(cutter);
+  train_simulations(cutting_pp)= [];
 
+  %% TODO
+  % funktioniert nur für itest == 1
+  if exist('cutting_points_val.mat', 'file')
+  
+    load('cutting_points_val.mat');
+    
+  else
+    
+    val_simulations= randi(numel(train_simulations), round(numel(cutter)*0.1), 1);     % 5 simulations
+    val_simulations= train_simulations(val_simulations);
+
+    %%
+    %% TODO: besser ich erstelle val_simulations in startMethodforStateEstimation
+    % so wie in get_cutting_points_test und speichere die einmal erstellte ab
+    % und lade diese wieder
+    save('cutting_points_val.mat', 'val_simulations');
+
+  end
+  
   %%
 
   for icut= cutting_pp
@@ -127,18 +156,44 @@ else
     end
 
   end
+  
+  %%
+  % to avoid that testdata also appears in traindata, make testdata 2
+  valdata_cutter= testdata_cutter .* 2;
+  
+  for icut= val_simulations
+
+    if icut - 1 <= 0
+      % first simulation, mark 1st to cutter(icut) element with 1
+      valdata_cutter(1:cutter(icut), 1)= ones(cutter(icut), 1);
+    else
+      % from previous end + 1, to current end mark with 1
+      valdata_cutter(cutter(icut - 1) + 1:cutter(icut), 1)= ...
+            ones(cutter(icut) - cutter(icut - 1), 1);
+    end
+
+  end
 
   %%
   % scale data
 
-  dataset(:,2:end)= scale_Data(dataset(:,2:end));
+  [dataset(:,2:end), lowLimit, maxLimit]= scale_Data(dataset(:,2:end));
 
   %%
   % erstellung von test- und traingsdatensatz 
 
-  testdata= dataset(testdata_cutter == 1,:);
-  traindata= dataset(testdata_cutter == 0,:);
+  % if we cluster dataset into clusters, then teh dataset below contains
+  % only the data from icluster, so we also have to filter out the correct
+  % values from the cutter
+  testdata_cutter= testdata_cutter(IDXkm == icluster);
 
+  testdata= dataset(testdata_cutter == 1,:);
+  
+  
+  %traindata= dataset(testdata_cutter == 0,:);
+  traindata= dataset(valdata_cutter == 0,:);
+  valdata= dataset(valdata_cutter == 1,:);
+  
   %%
 
 end % end if isempty(dataset_test) && 0

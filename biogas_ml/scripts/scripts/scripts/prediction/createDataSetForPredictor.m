@@ -15,7 +15,7 @@ function [dataset, stream]= createDataSetForPredictor(sensors, ...
 % E.g. the state of the post digester may be dependent on the state of the
 % primary digester
 
-error( nargchk(3, 9, nargin, 'struct') );
+error( nargchk(3, 10, nargin, 'struct') );
 error( nargoutchk(0, 2, nargout, 'struct') );
 
 %%
@@ -135,6 +135,17 @@ if nargin >= 9 && ~isempty(varargin{6})
   checkArgument(noisy, 'noisy', 'logical', 9);
 else
   noisy= false;
+end
+
+% if true, then method is called from simBiogasPlantForPrediction, there we
+% want to use all recorded data.
+% If false, then called from getStateEstimateOfDigester, there we just need
+% the last simulated values to estimate the current state estimate
+if nargin >= 10 && ~isempty(varargin{7})
+  use_history= varargin{7};
+  checkArgument(use_history, 'use_history', 'logical', 10);
+else
+  use_history= false;
 end
 
 %%
@@ -339,7 +350,11 @@ end
 
 % we just want to have the last value here, becasue that is the current
 % value
-max_filter= numel(t);
+if ~use_history % if not need history, then delete all data except the last
+  % if need history, then just delete the first few values which are wrong
+  % because of filter
+  max_filter= numel(t);
+end
 
 pH(  1:max_filter - 1, :)= [];
 ch4( 1:max_filter - 1, :)= [];
@@ -348,6 +363,17 @@ co2( 1:max_filter - 1, :)= [];
 
 %%
 
+% if use_history
+%   % throw away the first few values distorted by used filter
+%   for ifilter= 1:n_filter
+% 
+%     pH_mean.(  char(filter_char(1, ifilter)))(1:max_filter - 1, :)= [];
+%     ch4_mean.( char(filter_char(1, ifilter)))(1:max_filter - 1, :)= [];
+%     ch4p_mean.(char(filter_char(1, ifilter)))(1:max_filter - 1, :)= [];
+%     co2_mean.( char(filter_char(1, ifilter)))(1:max_filter - 1, :)= [];
+% 
+%   end
+% end
 
 
 
@@ -489,8 +515,10 @@ for idigester= 1:n_fermenter
 
   for ifilter= 1:n_filter
 
+    % if numel(t) only 1, then just get the last mean value, else get as
+    % much mean values as there are (also form the past: use_history= 1)
     X(:, 1 + ifilter + (n_filter + 2)*n_meas*(idigester - 1))= ...
-        pH_mean.(char(filter_char(1, ifilter)))(end,idigester);
+        pH_mean.(char(filter_char(1, ifilter)))(end-numel(t)+1:end,idigester);
 
   end
   
@@ -501,7 +529,7 @@ for idigester= 1:n_fermenter
 
   X(:, 2 + n_filter + (n_filter + 2)*n_meas*(idigester - 1))= ...
         ...[pH_mean.(char(filter_char(1, 2)))(1,idigester) .* ones(window, 1); ...
-         pH_mean.(char(filter_char(1, 2)))(end-window,idigester);%];
+         pH_mean.(char(filter_char(1, 2)))(max(1,end-numel(t)+1-window):end-window,idigester);%];
 
   %%
 
@@ -522,7 +550,7 @@ for idigester= 1:n_fermenter
   for ifilter= 1:n_filter
 
     X(:, 3 + n_filter + ifilter + (n_filter + 2)*n_meas*(idigester - 1))= ...
-        ch4p_mean.(char(filter_char(1, ifilter)))(end,idigester);
+        ch4p_mean.(char(filter_char(1, ifilter)))(end-numel(t)+1:end,idigester);
 
   end
 
@@ -533,7 +561,7 @@ for idigester= 1:n_fermenter
 
   X(:, 4 + 2*n_filter + (n_filter + 2)*n_meas*(idigester - 1))= ...
         ...[ch4p_mean.(char(filter_char(1, 2)))(1,idigester) .* ones(window, 1); ...
-         ch4p_mean.(char(filter_char(1, 2)))(end-window,idigester);%];
+         ch4p_mean.(char(filter_char(1, 2)))(max(1,end-numel(t)+1-window):end-window,idigester);%];
 
   %%
 
@@ -554,7 +582,7 @@ for idigester= 1:n_fermenter
   for ifilter= 1:n_filter
 
     X(:, 5 + 2*n_filter + ifilter + (n_filter + 2)*n_meas*(idigester - 1))= ...
-        ch4_mean.(char(filter_char(1, ifilter)))(end,idigester);
+        ch4_mean.(char(filter_char(1, ifilter)))(end-numel(t)+1:end,idigester);
 
   end
 
@@ -565,7 +593,7 @@ for idigester= 1:n_fermenter
 
   X(:, 6 + 3*n_filter + (n_filter + 2)*n_meas*(idigester - 1))= ...
         ...[ch4_mean.(char(filter_char(1, 2)))(1,idigester) .* ones(window, 1); ...
-         ch4_mean.(char(filter_char(1, 2)))(end-window,idigester);%];
+         ch4_mean.(char(filter_char(1, 2)))(max(1,end-numel(t)+1-window):end-window,idigester);%];
 
   %%
   % co2 content in the biogas
@@ -575,7 +603,7 @@ for idigester= 1:n_fermenter
   for ifilter= 1:n_filter
 
     X(:, 7 + 3*n_filter + ifilter + (n_filter + 2)*n_meas*(idigester - 1))= ...
-        co2_mean.(char(filter_char(1, ifilter)))(end,idigester);
+        co2_mean.(char(filter_char(1, ifilter)))(end-numel(t)+1:end,idigester);
 
   end
 
@@ -586,7 +614,7 @@ for idigester= 1:n_fermenter
 
   X(:, 8 + 4*n_filter + (n_filter + 2)*n_meas*(idigester - 1))= ...
         ...[co2_mean.(char(filter_char(1, 2)))(1,idigester) .* ones(window, 1); ...
-         co2_mean.(char(filter_char(1, 2)))(end-window,idigester);%];
+         co2_mean.(char(filter_char(1, 2)))(max(1,end-numel(t)+1-window):end-window,idigester);%];
 
   %%
   
@@ -594,14 +622,19 @@ end
 
 %%
 
-for ifilter= 1:n_filter
 
-  pH_mean.(  char(filter_char(1, ifilter)))(1:max_filter - 1, :)= [];
-  ch4_mean.( char(filter_char(1, ifilter)))(1:max_filter - 1, :)= [];
-  ch4p_mean.(char(filter_char(1, ifilter)))(1:max_filter - 1, :)= [];
-  co2_mean.( char(filter_char(1, ifilter)))(1:max_filter - 1, :)= [];
+%if ~use_history
+  % delete all values except of the last if ~use_history
+  % else, only delete the first values that are distorted by the filter
+  for ifilter= 1:n_filter
 
-end
+    pH_mean.(  char(filter_char(1, ifilter)))(1:max_filter - 1, :)= [];
+    ch4_mean.( char(filter_char(1, ifilter)))(1:max_filter - 1, :)= [];
+    ch4p_mean.(char(filter_char(1, ifilter)))(1:max_filter - 1, :)= [];
+    co2_mean.( char(filter_char(1, ifilter)))(1:max_filter - 1, :)= [];
+
+  end
+%end
 
 
 

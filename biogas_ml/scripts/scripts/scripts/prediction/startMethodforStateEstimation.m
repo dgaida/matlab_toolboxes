@@ -24,7 +24,8 @@ end
 
 if nargin >= 7 && ~isempty(varargin{2}),
   method= varargin{2};
-  validatestring(method, {'LDA', 'LDA_PCA', 'RF', 'RF_PCA', 'SVM', 'GerDA', 'DNN'}, ...
+  validatestring(method, {'LDA', 'LDA_PCA', 'RF', 'RF_PCA', 'RF_LLTSA', ...
+                          'RF_NPE', 'SVM', 'GerDA', 'DNN', 'CNN'}, ...
                  mfilename, 'method', 7);
 else
   method= 'RF';
@@ -89,7 +90,9 @@ regress= 0;
 
 % bins == -1, bedeutet regression
 if bins == -1 
-  if strcmp(method, 'RF') || strcmp(method, 'RF_PCA')
+  if strcmp(method, 'RF') || strcmp(method, 'RF_PCA') || ...
+     strcmp(method, 'RF_LLTSA') || strcmp(method, 'RF_NPE') || ...
+     strcmp(method, 'CNN')
     regress= 1;
   else
     error('bins == -1 && ~strcmp(method, RF)');
@@ -138,6 +141,39 @@ if strcmp(method, 'LDA') || strcmp(method, 'LDA_PCA')
 
 end
 
+%% CLUSTER dataset (contains u, y) into 3 CLUSTERS, for each cluster one 
+% regression/classification method is trained. three clusters could be
+% named normal/overload/inhibition. Could also create more clusters, e.g.
+% when we have two digesters we have a combination of all three situations.
+% e.g. both normal, one normal, the other overload, ...
+
+icluster= 1;    % 1:3
+
+dataset_total= dataset;
+
+numsamples= size(dataset_total,1);
+
+doclustering= 0;    % TODO: could be 0
+
+if doclustering
+
+  opts= statset('Display','final');
+
+  [IDXkm,Ckm,sumdkm,Dkm]= kmeans(dataset,3, 'Options', opts);
+  
+  % per default min_class_ub= 1000, that is too large if we split the
+  % dataset into 3 clusters
+  min_class_ub= min(100, min_class_ub);
+
+else
+
+  IDXkm= ones(size(dataset, 1), 1) .* icluster;
+  
+end
+
+dataset= dataset(IDXkm == icluster, :);
+
+
 %%
 
 for idigester= 1:n_fermenter%2:2%1:n_fermenter
@@ -148,9 +184,11 @@ for idigester= 1:n_fermenter%2:2%1:n_fermenter
 
   % wird in ADM1 Einheiten gemessen, d.h. kgCOD/m^3
   stream= streams.(fermenter_id);
+  stream= stream(IDXkm == icluster, :);
 
   if ~isempty(streams_test)
     stream_test= streams_test.(fermenter_id);
+    stream_test= stream_test(IDXkm == icluster, :);
   end
 
   %%
@@ -266,9 +304,14 @@ for idigester= 1:n_fermenter%2:2%1:n_fermenter
       %%
       % create train- and testdata
 
-      [traindata, testdata]= createTrainTestData(dataset, dataset_test, ...
-                           cutting_points_test, cutter, itest);
+      [traindata, testdata, valdata, lowLimit, maxLimit]= ...
+        createTrainTestData(dataset, dataset_test, ...
+                           cutting_points_test, cutter, itest, IDXkm, icluster, ...
+                           numsamples);
 
+      save(sprintf('minmaxScaleLimits_%s_var%02i.mat', fermenter_id, ivariable), ...
+        'lowLimit', 'maxLimit');                   
+                         
       %%
       % add noise to test- and/or trainingdata
       % does nothing at the moment
@@ -292,48 +335,131 @@ for idigester= 1:n_fermenter%2:2%1:n_fermenter
 
       if(1)
 
-        if strcmp(method, 'RF') || strcmp(method, 'RF_PCA')
+        if strcmp(method, 'RF') || strcmp(method, 'RF_PCA') || ...
+           strcmp(method, 'RF_LLTSA') || strcmp(method, 'RF_NPE')
 
           %%
           % do subsampling
           
-          mappedX= pca(traindata(:,2:end));
+          if(0)
+            
+          nimppcas= my_bins - 1;    % number of important pca coefficients
+          
+          % drtoolbox version needs as second argument the number of pcas,
+          % the matlab version does not
+          mappedX= pca(traindata(:,2:end), nimppcas);
           %mappedX= compute_mapping(traindata(:,2:end), 'PCA', 1);
           
-          [mXsort, mXindex]= sortrows(mappedX(:,1));
+          nth_train= 3;   % do not use each training sample but each nth. to use all, set to 1
           
-          traindata= traindata(mXindex, :);
+          % number of traindata we take from every principal component
+          sizparcel= round(size(traindata, 1)/(nimppcas*nth_train));
           
-          nth_train= 3;   % do not use each training sample but each nth. to use all set to 1
+          traindatanew= zeros(sizparcel*nimppcas, size(traindata, 2));
+          
+          for ipca=1:nimppcas
+            
+            % sort rows according to ipcath most important principal
+            % component
+            [mXsort, mXindex]= sortrows(mappedX(:,ipca));
+
+            traindata= traindata(mXindex, :);
+            mappedX= mappedX(mXindex, :);
+            
+            traindatanew(1 + (ipca-1)*sizparcel:ipca*sizparcel, :)= ...
+              traindata(1:sizparcel,:);
+
+            % throw away first sizparcel elements, as they are already in
+            % traindatanew
+            traindata= traindata(sizparcel+1:end,:);
+            mappedX= mappedX(sizparcel+1:end,:);
+            
+          end
+          
+          traindata= traindatanew;
+          
+          end
+          
+          nth_train= 1;   % do not use each training sample but each nth. to use all, set to 1
           
           %%
           
-          if strcmp(method, 'RF_PCA')
+          switch(method)
+            
+            case 'RF_PCA'
           
-            %%
+              %%
 
-            mydataPCA= [traindata(:,2:end); testdata(:,2:end)];
+              mydataPCA= [traindata(:,2:end); testdata(:,2:end)];
 
-            [pc,s,v,d,pr]= pca(mydataPCA);
+              num_pcas= my_bins - 1;%20;
 
-            num_pcas= 20;
-            
-            rat_dim= round(size(traindata, 2) / num_pcas);
+              % drtoolbox version needs as second argument the number of pcas,
+              % the matlab version does not
+              pc= pca(mydataPCA, num_pcas);
 
-            traindata= [traindata(:, 1), pc(1:size(traindata, 1), 1:num_pcas)];
-            testdata= [testdata(:, 1), pc(size(traindata, 1) + 1:end, 1:num_pcas)];
-            
-            % if using less training data use more trees
-            % and use more trees depend on the ratio of dimensions
-            n_trees= rat_dim * 20 * nth_train; % 60
-            
-          else
-            n_trees= 20 * nth_train; % 60
+              rat_dim= round(size(traindata, 2) / num_pcas);
+
+              traindata= [traindata(:, 1), pc(1:size(traindata, 1), 1:num_pcas)];
+              testdata= [testdata(:, 1), pc(size(traindata, 1) + 1:end, 1:num_pcas)];
+
+              % if using less training data use more trees
+              % and use more trees depend on the ratio of dimensions
+              n_trees= rat_dim * 20 * nth_train; % 60
+
+            case 'RF_LLTSA'
+              %% TODO:
+              % LLTSA returns an error:
+              % Error with ARPACK routine dneupd:
+              % dnaupd did not find any eigenvalues to sufficient accuracy.
+              
+              mydataLLTSA= [traindata(:,2:end); testdata(:,2:end)];
+              
+              num_lltsa= my_bins - 1;%20;
+              
+              [mappedX, mapping]= lltsa(mydataLLTSA, num_lltsa);
+
+              rat_dim= round(size(traindata, 2) / num_lltsa);
+
+              traindata= [traindata(:, 1), mappedX(1:size(traindata, 1))];
+              testdata= [testdata(:, 1), mappedX(size(traindata, 1) + 1:end)];
+
+              % if using less training data use more trees
+              % and use more trees depend on the ratio of dimensions
+              n_trees= rat_dim * 20 * nth_train; % 60
+              
+            case 'RF_NPE'
+              
+              mydataNPE= [traindata(:,2:end); testdata(:,2:end)];
+              
+              num_npe= my_bins - 1;%20;
+              
+              [mappedX, mapping]= npe(mydataNPE, num_npe);
+
+              rat_dim= round(size(traindata, 2) / num_npe);
+
+              traindata= [traindata(:, 1), mappedX(1:size(traindata, 1))];
+              testdata= [testdata(:, 1), mappedX(size(traindata, 1) + 1:end)];
+
+              % if using less training data use more trees
+              % and use more trees depend on the ratio of dimensions
+              n_trees= rat_dim * 20 * nth_train; % 60
+                
+            case 'RF'
+              
+              n_trees= 20 * nth_train; % 60
+              
           end
           
           %%
           
-          traindata= traindata(1:nth_train:end,:);
+          % as traindata is sorted according to relevance, we should take
+          % the first elements until end/nth_train
+          % in algorithmus oben, wird traindata schon auf 1/nth_train der
+          % daten verkleinert
+          %traindata= traindata(1:end/nth_train,:);
+          % this is for random data
+          %traindata= traindata(1:nth_train:end,:);
           
           %%
           
@@ -410,6 +536,18 @@ for idigester= 1:n_fermenter%2:2%1:n_fermenter
           
           [perf_temp(itest,1)]= ...
                 callDNNforStateEstimation(traindata, testdata, ...
+                            fermenter_id, ivariable, itest, index_file, y, my_bins);
+          
+          %%
+          
+          perf_1st_temp(itest,1)= 100;
+          
+        elseif strcmp(method, 'CNN')      % Convolutional Neural Network
+
+          %%
+          
+          [perf_temp(itest,1)]= ...
+                callCNNforStateEstimation(traindata, testdata, valdata, ...
                             fermenter_id, ivariable, itest, index_file, y, my_bins);
           
           %%
