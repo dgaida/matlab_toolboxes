@@ -889,4 +889,702 @@ plant.addDigester(fermenter);
 ### 4. Fehlerbehandlung
 
 ```csharp
-// GUT: Try-Catch für
+// GUT: Try-Catch für kritische Operationen
+try
+{
+    double balance = plant.calcThermalEnergyBalance(
+        "F1", Q, substrates, sensors
+    );
+    
+    if (balance < 0)
+    {
+        double heatPower = plant.calcHeatPower(
+            "F1", Q, substrates, plant.Tout, sensors
+        );
+        Console.WriteLine($"Heizleistung: {heatPower:F1} kWh/d");
+    }
+}
+catch (exception ex)
+{
+    Console.WriteLine($"Energieberechnung fehlgeschlagen: {ex.Message}");
+    // Fallback-Strategie
+}
+
+// VERMEIDEN: Unbehandelte Exceptions
+// var balance = plant.calcThermalEnergyBalance(...);  // Kann werfen!
+```
+
+### 5. Konsistente ID-Verwaltung
+
+```csharp
+// GUT: IDs dokumentieren und konsistent nutzen
+var plant = new plant();
+
+// Fermenter-IDs nach Schema
+plant.addDigester(new digester("F1", "Hauptfermenter"));
+plant.addDigester(new digester("F2", "Nachfermenter"));
+
+// BHKW-IDs nach Schema
+plant.addCHP(new chp("CHP1", "BHKW Hauptgebäude"));
+plant.addCHP(new chp("CHP2", "BHKW Nebengebäude"));
+
+// Substrat-Transporte werden automatisch erstellt:
+// "substratemix_F1", "substratemix_F2"
+
+// Zugriff dann konsistent über IDs
+double vliq_f1 = plant.getDigesterParam("F1", "Vliq");
+double pel_chp1 = plant.getCHPParam("CHP1", "Pel");
+```
+
+### 6. XML-Persistenz
+
+```csharp
+// GUT: Regelmäßig speichern
+var plant = new plant();
+// ... Konfiguration ...
+plant.saveAsXML("plant_config.xml");
+
+// Später laden
+var loaded_plant = new plant("plant_config.xml");
+
+// Änderungen speichern
+loaded_plant.set_params_of("Tout", 15.0);
+loaded_plant.saveAsXML("plant_config_updated.xml");
+
+// TIPP: Versionierung verwenden
+string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+plant.saveAsXML($"plant_config_{timestamp}.xml");
+```
+
+---
+
+## Erweiterte Anwendungsbeispiele
+
+### Beispiel 1: Vollständige Anlagen-Simulation
+
+```csharp
+using biogas;
+using science;
+
+// Anlage laden
+var plant = new plant("plant_config.xml");
+var substrates = new substrates("substrates.xml");
+var sensors = new sensors();
+
+// Substratfütterung definieren
+double[] Q_maize = {80.0, 0.0};      // 80 m³/d Mais in F1
+double[] Q_manure = {0.0, 120.0};    // 120 m³/d Gülle in F2
+
+// Simulationsschleife
+for (double t = 0; t < 365; t += 1)  // 1 Jahr, täglich
+{
+    // 1. Fermenter-Berechnungen
+    foreach (var fermenter in plant.myDigesters)
+    {
+        // TS/VS berechnen (aus ADM-Zustand)
+        double[] x = /* ADM-Simulation liefert x */;
+        double[] Q = (fermenter.id == "F1") ? Q_maize : Q_manure;
+        
+        physValue TS;
+        var VS = digester.calcVS(x, substrates, Q, out TS);
+        
+        // Energiebilanz
+        double balance = plant.calcThermalEnergyBalance(
+            fermenter.id, Q, substrates, sensors
+        );
+        
+        // Bei Bedarf heizen
+        if (balance < 0)
+        {
+            double heatPower = plant.calcHeatPower(
+                fermenter.id, Q, substrates, plant.Tout, sensors
+            );
+            // Heizung aktivieren...
+        }
+        
+        // Prozessparameter loggen
+        Console.WriteLine($"Tag {t}, {fermenter.name}:");
+        Console.WriteLine($"  TS: {TS.Value:F2} % FM");
+        Console.WriteLine($"  VS: {VS.Value:F2} % TS");
+        Console.WriteLine($"  Balance: {balance:F1} kWh/d");
+    }
+    
+    // 2. Biogasproduktion zusammenführen
+    double[] biogas_total = BioGas.merge_streams(
+        /* Biogasströme aller Fermenter */,
+        plant.getNumDigesters()
+    );
+    
+    // 3. BHKWs betreiben
+    physValue P_el_total = new physValue(0, "kWh/d");
+    foreach (var chp in plant.myCHPs)
+    {
+        physValue P_el, P_therm;
+        plant.burnBiogas(chp.id, biogas_total, out P_el, out P_therm);
+        P_el_total = P_el_total + P_el;
+        
+        Console.WriteLine($"  {chp.name}: {P_el.Value:F1} kWh/d");
+    }
+    
+    // 4. Wirtschaftlichkeit
+    double verguetung = plant.getVerguetung(
+        P_el_total.convertUnit("kW").Value,
+        false
+    );
+    double erloes = P_el_total.Value * verguetung;
+    
+    Console.WriteLine($"Tageserlös: {erloes:F2} €");
+    Console.WriteLine("---");
+}
+```
+
+### Beispiel 2: Prozess-Optimierung
+
+```csharp
+using biogas;
+using science;
+
+// Anlage laden
+var plant = new plant("plant_config.xml");
+var substrates = new substrates("substrates.xml");
+var sensors = new sensors();
+
+// Optimierungsparameter
+double[] Q_range = {50, 100, 150, 200};  // m³/d zu testen
+double best_Q = 0;
+double best_profit = double.MinValue;
+
+// Für jeden Betriebspunkt
+foreach (double Q_test in Q_range)
+{
+    double[] Q = {Q_test, 0.0};  // Beispiel: nur ein Substrat
+    
+    // Energiebilanz
+    double balance = plant.calcThermalEnergyBalance(
+        "F1", Q, substrates, sensors
+    );
+    
+    // Heizkosten
+    double heatCosts = 0;
+    if (balance < 0)
+    {
+        double heatPower = plant.calcHeatPower(
+            "F1", Q, substrates, plant.Tout, sensors
+        );
+        heatCosts = plant.calcCostsForHeating(
+            "F1",
+            new physValue(heatPower, "kWh/d"),
+            0.08, 0.25
+        );
+    }
+    
+    // Substratkosten
+    double substratCosts = Q * substrates.get(1).get_param_of("cost");
+    
+    // Biogasproduktion schätzen (vereinfacht)
+    double bmp = substrates.get(1).calcBMP().Value;  // l/g FM
+    double ts = substrates.get(1).get_param_of("TS");  // % FM
+    double rho = substrates.get(1).get_param_of("rho");  // kg/m³
+    
+    double biogas_m3d = Q * (ts/100) * rho * bmp / 1000;
+    double ch4_content = substrates.get(1).calcGasQuality().Value / 100;
+    double ch4_m3d = biogas_m3d * ch4_content;
+    
+    // Stromproduktion
+    double pel_kwhd;
+    plant.getElPowerEquiv(ch4_m3d, out pel_kwhd);
+    
+    double verguetung = plant.getVerguetung(pel_kwhd / 24, false);
+    double erloes = pel_kwhd * verguetung;
+    
+    // Gewinn
+    double profit = erloes - heatCosts - substratCosts;
+    
+    Console.WriteLine($"\nQ = {Q_test} m³/d:");
+    Console.WriteLine($"  Biogas: {biogas_m3d:F1} m³/d");
+    Console.WriteLine($"  CH4: {ch4_m3d:F1} m³/d");
+    Console.WriteLine($"  Strom: {pel_kwhd:F1} kWh/d");
+    Console.WriteLine($"  Erlös: {erloes:F2} €/d");
+    Console.WriteLine($"  Heizkosten: {heatCosts:F2} €/d");
+    Console.WriteLine($"  Substratkosten: {substratCosts:F2} €/d");
+    Console.WriteLine($"  Gewinn: {profit:F2} €/d");
+    
+    if (profit > best_profit)
+    {
+        best_profit = profit;
+        best_Q = Q_test;
+    }
+}
+
+Console.WriteLine($"\n=== Optimum ===");
+Console.WriteLine($"Beste Fütterung: {best_Q} m³/d");
+Console.WriteLine($"Bester Gewinn: {best_profit:F2} €/d");
+```
+
+### Beispiel 3: Multi-Fermenter-Betrieb
+
+```csharp
+using biogas;
+using science;
+
+var plant = new plant("plant_config.xml");
+var substrates = new substrates("substrates.xml");
+var sensors = new sensors();
+
+// Substratverteilung auf Fermenter
+var distribution = new Dictionary
+{
+    {"F1", new double[] {100, 0}},     // Mais
+    {"F2", new double[] {0, 150}},     // Gülle
+    {"F3", new double[] {50, 50}}      // Mix
+};
+
+// Für jeden Fermenter
+double total_heat = 0;
+var biogas_streams = new List();
+
+foreach (var kvp in distribution)
+{
+    string fermenter_id = kvp.Key;
+    double[] Q = kvp.Value;
+    
+    // Fermenter-Informationen
+    string name = plant.getDigesterName(fermenter_id);
+    double vliq = plant.getDigesterParam(fermenter_id, "Vliq");
+    double temp = plant.getDigesterParam(fermenter_id, "T");
+    
+    Console.WriteLine($"\n{name} ({fermenter_id}):");
+    Console.WriteLine($"  Vliq: {vliq} m³, T: {temp}°C");
+    Console.WriteLine($"  Fütterung: {Q[0]} m³/d Mais, {Q[1]} m³/d Gülle");
+    
+    // HRT berechnen
+    var HRT = digester.calcHRT(Q, new physValue(vliq, "m³"));
+    Console.WriteLine($"  HRT: {HRT.Value:F1} d");
+    
+    // Heizleistung
+    double heatPower = plant.calcHeatPower(
+        fermenter_id, Q, substrates, plant.Tout, sensors
+    );
+    total_heat += heatPower;
+    Console.WriteLine($"  Heizleistung: {heatPower:F1} kWh/d");
+    
+    // Biogasproduktion (aus ADM-Simulation)
+    double[] biogas = /* ADM liefert Biogasstrom */;
+    biogas_streams.Add(biogas);
+    
+    double total_biogas = biogas[0] + biogas[1] + biogas[2];
+    double ch4_percent = biogas[1] / total_biogas * 100;
+    Console.WriteLine($"  Biogas: {total_biogas:F1} m³/d");
+    Console.WriteLine($"  CH4-Gehalt: {ch4_percent:F1} %");
+}
+
+Console.WriteLine($"\n=== Gesamt-Anlage ===");
+Console.WriteLine($"Gesamt-Heizleistung: {total_heat:F1} kWh/d");
+
+// Biogas zusammenführen
+double[] total_biogas_stream = new double[BioGas.n_gases];
+foreach (var stream in biogas_streams)
+{
+    for (int i = 0; i < BioGas.n_gases; i++)
+    {
+        total_biogas_stream[i] += stream[i];
+    }
+}
+
+double total_ch4 = total_biogas_stream[BioGas.pos_ch4 - 1];
+Console.WriteLine($"Gesamt CH4: {total_ch4:F1} m³/d");
+
+// Stromproduktion
+double pel_total;
+plant.getElPowerEquiv(total_ch4, out pel_total);
+Console.WriteLine($"Stromproduktion: {pel_total:F1} kWh/d");
+
+var maxEl = plant.getMaxElEnergy();
+double auslastung = pel_total / maxEl.Value * 100;
+Console.WriteLine($"BHKW-Auslastung: {auslastung:F1} %");
+```
+
+### Beispiel 4: Szenario-Vergleich
+
+```csharp
+using biogas;
+using science;
+
+// Basis-Anlage
+var plant_base = new plant("plant_base.xml");
+
+// Szenario 1: Größerer Fermenter
+var plant_s1 = new plant("plant_base.xml");
+plant_s1.setDigesterParam("F1", "Vliq", 3500.0);
+
+// Szenario 2: Zusätzliches BHKW
+var plant_s2 = new plant("plant_base.xml");
+var chp_new = new chp("CHP3", "BHKW 3");
+chp_new.set_params_of("Pel", 250.0, "eta_el", 0.40);
+plant_s2.addCHP(chp_new);
+
+// Szenario 3: Bessere Isolierung
+var plant_s3 = new plant("plant_base.xml");
+for (int i = 1; i <= plant_s3.getNumDigesters(); i++)
+{
+    plant_s3.setDigesterParam(i, "k_wall", 0.25);
+    plant_s3.setDigesterParam(i, "k_roof", 0.15);
+}
+
+// Szenarien vergleichen
+var scenarios = new Dictionary
+{
+    {"Basis", plant_base},
+    {"Größerer Fermenter", plant_s1},
+    {"Zusätzliches BHKW", plant_s2},
+    {"Bessere Isolierung", plant_s3}
+};
+
+var substrates = new substrates("substrates.xml");
+var sensors = new sensors();
+double[] Q = {100, 50};
+
+Console.WriteLine("Szenario-Vergleich:\n");
+
+foreach (var scenario in scenarios)
+{
+    Console.WriteLine($"{scenario.Key}:");
+    
+    // Max. Leistung
+    var maxPel = scenario.Value.getMaxElPower();
+    Console.WriteLine($"  Max. el. Leistung: {maxPel.Value:F1} kW");
+    
+    // Heizkosten
+    double heatCosts = 0;
+    for (int i = 1; i <= scenario.Value.getNumDigesters(); i++)
+    {
+        string id = scenario.Value.getDigesterID(i);
+        double heat = scenario.Value.calcHeatPower(
+            id, Q, substrates, scenario.Value.Tout, sensors
+        );
+        heatCosts += scenario.Value.calcCostsForHeating(
+            id, new physValue(heat, "kWh/d"), 0.08, 0.25
+        );
+    }
+    Console.WriteLine($"  Heizkosten: {heatCosts:F2} €/d");
+    
+    // Investitionskosten (vereinfacht)
+    double invest = 0;
+    if (scenario.Key.Contains("Größerer"))
+        invest = 200000;  // 200k € für größeren Fermenter
+    else if (scenario.Key.Contains("BHKW"))
+        invest = 150000;  // 150k € für BHKW
+    else if (scenario.Key.Contains("Isolierung"))
+        invest = 50000;   // 50k € für bessere Isolierung
+    
+    Console.WriteLine($"  Investition: {invest:F0} €");
+    
+    // ROI (sehr vereinfacht)
+    if (invest > 0)
+    {
+        double savings_per_year = (scenarios["Basis"] ? 
+            /* Basis-Heizkosten */ - heatCosts : 0) * 365;
+        double roi_years = invest / savings_per_year;
+        Console.WriteLine($"  ROI: {roi_years:F1} Jahre");
+    }
+    
+    Console.WriteLine();
+}
+```
+
+### Beispiel 5: Wartung und Monitoring
+
+```csharp
+using biogas;
+using science;
+
+var plant = new plant("plant_config.xml");
+
+// Anlagen-Inspektion
+Console.WriteLine("=== Anlagen-Inspektion ===\n");
+
+// Fermenter-Status
+Console.WriteLine("Fermenter:");
+for (int i = 1; i <= plant.getNumDigesters(); i++)
+{
+    string name = plant.getDigesterName(i);
+    string id = plant.getDigesterID(i);
+    double vliq = plant.getDigesterParam(i, "Vliq");
+    double temp = plant.getDigesterParam(i, "T");
+    
+    // Rührwerke
+    var fermenter = plant.getDigester(i);
+    int numStirrer = fermenter.mixers.getNumStirrers();
+    
+    Console.WriteLine($"  {name} ({id}):");
+    Console.WriteLine($"    Vliq: {vliq} m³, T: {temp}°C");
+    Console.WriteLine($"    Rührwerke: {numStirrer}");
+    
+    // Heizung
+    bool heatingOn = fermenter.heating.status;
+    double heatingEta = fermenter.heating.eta;
+    Console.WriteLine($"    Heizung: {(heatingOn ? "An" : "Aus")}, η={heatingEta:P0}");
+}
+
+// BHKW-Status
+Console.WriteLine("\nBHKWs:");
+for (int i = 1; i <= plant.getNumCHPs(); i++)
+{
+    string name = plant.getCHPName(i);
+    string id = plant.getCHPID(i);
+    double pel = plant.getCHPParam(i, "Pel");
+    double eta_el = plant.getCHPParamD(i, "eta_el");
+    
+    Console.WriteLine($"  {name} ({id}):");
+    Console.WriteLine($"    Pel: {pel} kW, η_el={eta_el:P0}");
+}
+
+// Gesamt-Übersicht
+Console.WriteLine("\nGesamt:");
+var maxPel = plant.getMaxElPower();
+Console.WriteLine($"  Max. el. Leistung: {maxPel.Value} kW");
+Console.WriteLine($"  Baujahr: {plant.construct_year}");
+Console.WriteLine($"  Umgebungstemperatur: {plant.Tout.Value}°C");
+
+// Warnungen
+Console.WriteLine("\nWarnungen:");
+bool warnings = false;
+
+// Temperatur-Check
+for (int i = 1; i <= plant.getNumDigesters(); i++)
+{
+    double temp = plant.getDigesterParam(i, "T");
+    if (temp < 35 || temp > 45)
+    {
+        string name = plant.getDigesterName(i);
+        Console.WriteLine($"  {name}: Temperatur außerhalb Optimum (35-45°C)!");
+        warnings = true;
+    }
+}
+
+// Heizungs-Check
+for (int i = 1; i <= plant.getNumDigesters(); i++)
+{
+    var fermenter = plant.getDigester(i);
+    if (fermenter.heating.eta < 0.5)
+    {
+        Console.WriteLine($"  {fermenter.name}: Niedriger Heizungswirkungsgrad!");
+        warnings = true;
+    }
+}
+
+if (!warnings)
+{
+    Console.WriteLine("  Keine Warnungen.");
+}
+```
+
+---
+
+## Zusammenfassung der Wichtigsten Methoden
+
+### Fermenter-Verwaltung
+
+```csharp
+// Hinzufügen/Löschen
+plant.addDigester(digester myDigester)
+plant.deleteDigester(int index)
+
+// Zugriff
+digester plant.getDigester(int index)
+digester plant.getDigesterByID(string id)
+int plant.getNumDigesters()
+
+// Parameter
+double plant.getDigesterParam(string id, string param)
+void plant.setDigesterParam(string id, string param, double value)
+
+// ADM
+double[] plant.getDefaultADMparams(string id)
+void plant.setADMparameter(string id, int pos, double value)
+```
+
+### BHKW-Verwaltung
+
+```csharp
+// Hinzufügen/Löschen
+plant.addCHP(chp myCHP)
+plant.deleteCHP(int index)
+
+// Zugriff
+chp plant.getCHP(int index)
+chp plant.getCHPByID(string id)
+int plant.getNumCHPs()
+
+// Parameter
+double plant.getCHPParam(string id, string param)
+void plant.setCHPParam(string id, string param, double value)
+
+// Betrieb
+void plant.burnBiogas(string chp_id, double[] u, out physValue P_el, out physValue P_therm)
+physValue plant.getMaxElPower()
+```
+
+### Energie-Berechnungen
+
+```csharp
+// Thermische Bilanz
+double plant.calcThermalEnergyBalance(string id, double[] Q, substrates subs, sensors sens)
+double plant.calcHeatPower(string id, double[] Q, substrates subs, physValue T_amb, sensors sens)
+double plant.calcCostsForHeating(string id, physValue P_loss, double sell, double cost)
+
+// Elektrisch
+void plant.getElPowerEquiv(double Q_ch4, out double Pel)
+double plant.getVerguetung(double Pel, bool var)
+```
+
+### Datenmanagement
+
+```csharp
+// Laden/Speichern
+var plant = new plant(string XMLfile)
+void plant.saveAsXML(string XMLfile)
+
+// Ausgabe
+string plant.print()
+
+// Parameter
+void plant.set_params_of(params object[] symbols)
+void plant.get_params_of(out object[] vars, params string[] symbols)
+```
+
+---
+
+## Häufige Fehler und Lösungen
+
+### Problem 1: "Index out of bounds"
+
+```csharp
+// FALSCH: 0-basierte Indexierung
+var fermenter = plant.getDigester(0);  // Exception!
+
+// RICHTIG: 1-basierte Indexierung
+var fermenter = plant.getDigester(1);  // Erster Fermenter
+```
+
+### Problem 2: "Unknown parameter"
+
+```csharp
+// FALSCH: Falscher Parameter-Name
+double temp = plant.getDigesterParam("F1", "Temperature");  // Exception!
+
+// RICHTIG: Korrekter Parameter-Name
+double temp = plant.getDigesterParam("F1", "T");
+```
+
+### Problem 3: "Efficiency is zero"
+
+```csharp
+// FALSCH: Wirkungsgrad nicht gesetzt
+var heating = new heating();  // eta = 0
+// ... später ...
+heating.compensateHeatLoss(...);  // Exception: Division durch Null!
+
+// RICHTIG: Wirkungsgrad setzen
+var heating = new heating(0.85);
+// oder
+var heating = new heating();
+heating.set_params_of("eta", 0.85);
+```
+
+### Problem 4: Inconsistent units
+
+```csharp
+// FALSCH: Einheiten-Mismatch
+var T1 = new physValue(40, "°C");
+var T2 = new physValue(313, "K");
+var diff = T1 - T2;  // Exception: Einheiten nicht kompatibel!
+
+// RICHTIG: Vor Verwendung konvertieren
+var T2_celsius = T2.convertUnit("°C");
+var diff = T1 - T2_celsius;
+```
+
+### Problem 5: Fermenter ohne Transport
+
+```csharp
+// FALSCH: Manuell Fermenter zur Liste hinzufügen
+plant.myDigesters.addDigester(fermenter);  // Kein substrate_transport!
+
+// RICHTIG: plant-Methode nutzen
+plant.addDigester(fermenter);  // Erstellt automatisch substrate_transport
+```
+
+---
+
+## Performance-Tipps
+
+### 1. XML-Caching
+
+```csharp
+// Langsam: Bei jedem Zugriff laden
+for (int i = 0; i < 1000; i++)
+{
+    var plant = new plant("plant.xml");
+    // ... Berechnungen ...
+}
+
+// Schneller: Einmal laden
+var plant = new plant("plant.xml");
+for (int i = 0; i < 1000; i++)
+{
+    // ... Berechnungen mit plant ...
+}
+```
+
+### 2. Batch-Parameter-Zugriff
+
+```csharp
+// Langsam: Einzelne Zugriffe
+for (int i = 1; i <= plant.getNumDigesters(); i++)
+{
+    double vliq = plant.getDigesterParam(i, "Vliq");
+    double temp = plant.getDigesterParam(i, "T");
+    // ...
+}
+
+// Schneller: Direkt auf Objekt zugreifen
+foreach (var fermenter in plant.myDigesters)
+{
+    double vliq = fermenter.Vliq.Value;
+    double temp = fermenter.T.Value;
+    // ...
+}
+```
+
+### 3. Wiederverwendung von Berechnungen
+
+```csharp
+// Ineffizient: Mehrfachberechnungen
+double balance1 = plant.calcThermalEnergyBalance("F1", Q, subs, sens);
+double heatPower = plant.calcHeatPower("F1", Q, subs, T_amb, sens);
+
+// Besser: Mit Komponenten-Ausgabe
+physValue P_subs, P_rad, P_micro, P_stirr;
+double balance = plant.calcThermalEnergyBalance(
+    "F1", Q, subs, sens,
+    out P_subs, out P_rad, out P_micro, out P_stirr
+);
+// Komponenten verwenden statt neu berechnen
+```
+
+---
+
+## Siehe auch
+
+- **biogas.digesters**: Fermenter-Klassen
+- **biogas.chps**: BHKW-Klassen
+- **biogas.transportation**: Pumpen und Transporte
+- **biogas.finances**: Wirtschaftlichkeitsberechnungen
+- **biogas.substrates**: Substrat-Verwaltung
+- **biogas.sensors**: Messdatenerfassung
+
+---
+
+*Dokumentation erstellt für biogas_c# Toolbox*  
+*Stand: Januar 2026*
