@@ -813,4 +813,767 @@ Setzt Standard-ADM-Parametervektor.
 
 Für MATLAB-Integration.
 
-#### Parameter-Zu
+#### Parameter-Zugriff
+
+#### Get-Methoden
+
+##### `get_param_of_s(int index, string symbol)` / `get_param_of_s(string id, string symbol)`
+
+Holt String-Parameter.
+
+**Rückgabe:**
+- `string`: Parameterwert
+
+**Ausnahmen:**
+- `exception`: Ungültiger Index/Unbekannte ID
+- `exception`: Unbekannter Parameter
+- `exception`: Konvertierung nicht möglich
+
+##### `get_param_of_d(int index, string symbol)` / `get_param_of_d(string id, string symbol)`
+
+Holt double-Parameter.
+
+**Rückgabe:**
+- `double`: Parameterwert
+
+**Ausnahmen:**
+- `exception`: Ungültiger Index/Unbekannte ID
+- `exception`: Unbekannter Parameter
+- `exception`: Konvertierung nicht möglich
+
+##### `get_param_of(int index, string symbol)` / `get_param_of(string id, string symbol)`
+
+Holt physValue-Parameter als double (nur Value).
+
+**Rückgabe:**
+- `double`: Parameterwert
+
+**Ausnahmen:**
+- `exception`: Ungültiger Index/Unbekannte ID
+- `exception`: Unbekannter Parameter
+
+#### Set-Methoden
+
+##### `set_params_of(int index, string symbol, string value)`
+
+Setzt String-Parameter.
+
+**Ausnahmen:**
+- `exception`: Ungültiger Index
+- `exception`: Unbekannter Parameter
+
+##### `set_params_of(int index, string symbol, physValue value)`
+
+Setzt physValue-Parameter.
+
+##### `set_params_of(int index, string symbol, double value)`
+
+Setzt double-Parameter.
+
+##### `set_params_of(string id, string symbol, ...)`
+
+Überladungen für ID-basierte Parametersetzer.
+
+**Beispiel:**
+```csharp
+var digesters = new digesters();
+// ... Fermenter hinzufügen ...
+
+// String-Parameter setzen
+digesters.set_params_of(1, "name", "Neuer Name");
+digesters.set_params_of("F1", "name", "Fermenter 1");
+
+// Double-Parameter setzen
+digesters.set_params_of(1, "T", 42.0);
+digesters.set_params_of("F1", "Vliq", 2500.0);
+
+// physValue-Parameter setzen
+var vliq = new physValue("Vliq", 3000.0, "m³");
+digesters.set_params_of(1, "Vliq", vliq);
+```
+
+#### Datenmanagement
+
+##### `getParamsFromXMLReader(ref XmlTextReader reader)`
+
+Liest alle Fermenter aus XML.
+
+**Parameter:**
+- `reader` (ref XmlTextReader): Offener XML-Reader
+
+**Liest bis zum End-Tag `</digesters>`**
+
+**Format:**
+```xml
+
+    
+        Hauptfermenter
+        
+    
+    
+        Nachfermenter
+        
+    
+
+```
+
+##### `getParamsAsXMLString()`
+
+Gibt alle Fermenter als XML-String zurück.
+
+**Rückgabe:**
+- `string`: XML-formatierter String
+
+##### `print()`
+
+Gibt alle Fermenter formatiert aus.
+
+**Rückgabe:**
+- `string`: Formatierter String mit allen Fermentern
+
+---
+
+### Anwendungsbeispiele (digesters-Liste)
+
+#### Fermenter-Liste erstellen und verwalten
+
+```csharp
+// Liste erstellen
+var digesters = new digesters();
+
+// Fermenter hinzufügen
+var f1 = new digester("F1", "Hauptfermenter");
+f1.set_params_of("Vliq", 2500.0, "T", 42.0);
+
+var f2 = new digester("F2", "Nachfermenter");
+f2.set_params_of("Vliq", 1500.0, "T", 40.0);
+
+digesters.addDigester(f1);
+digesters.addDigester(f2);
+
+// Anzahl
+Console.WriteLine($"Anzahl Fermenter: {digesters.getNumDigesters()}");
+
+// Zugriff per Index (1-basiert)
+var fermenter1 = digesters.get(1);
+Console.WriteLine($"Fermenter 1: {fermenter1.name}");
+
+// Zugriff per ID
+var fermenterF2 = digesters.get("F2");
+Console.WriteLine($"Fermenter F2: {fermenterF2.name}");
+
+// Iteration
+foreach (var f in digesters)
+{
+    Console.WriteLine($"{f.name}: {f.Vliq.Value} m³");
+}
+
+// Speichern
+var xml = digesters.getParamsAsXMLString();
+File.WriteAllText("digesters_config.xml", xml);
+```
+
+#### Parameter für mehrere Fermenter setzen
+
+```csharp
+var digesters = new digesters("digesters.xml");
+
+// Alle Fermenter auf 42°C setzen
+for (int i = 1; i <= digesters.getNumDigesters(); i++)
+{
+    digesters.set_params_of(i, "T", 42.0);
+}
+
+// Spezifischen Fermenter per ID ändern
+digesters.set_params_of("F1", "Vliq", 3000.0);
+digesters.set_params_of("F1", "k_wall", 0.35);
+
+// Parameter abrufen
+double vliq_f1 = digesters.get_param_of("F1", "Vliq");
+double temp_f1 = digesters.get_param_of_d("F1", "T");
+string name_f1 = digesters.get_param_of_s("F1", "name");
+
+Console.WriteLine($"{name_f1}: {vliq_f1} m³, {temp_f1}°C");
+```
+
+#### ADM-Parameter für mehrere Fermenter
+
+```csharp
+var digesters = new digesters("digesters.xml");
+
+// Desintegrationsrate für alle Fermenter setzen
+int pos_kdis = 1;
+double kdis_new = 0.3;
+
+for (int i = 1; i <= digesters.getNumDigesters(); i++)
+{
+    digesters.setADMparameter(i, pos_kdis, kdis_new);
+    
+    double kdis;
+    digesters.getADMparameter(i, pos_kdis, out kdis);
+    
+    string id = digesters.get(i).id;
+    Console.WriteLine($"Fermenter {id}: kdis = {kdis} 1/d");
+}
+
+// Zwei Parameter gleichzeitig setzen
+digesters.setADMparameter(1, 
+    pos_kdis, 0.3,      // kdis
+    2, 0.25);           // khyd_ch
+```
+
+#### Energie-Berechnungen für alle Fermenter
+
+```csharp
+var digesters = new digesters("digesters.xml");
+var substrates = new substrates("substrates.xml");
+var sensors = new sensors();
+var T_ambient = new physValue(10, "°C");
+
+// Für jeden Fermenter
+for (int i = 1; i <= digesters.getNumDigesters(); i++)
+{
+    string id = digesters.get(i).id;
+    
+    // Substratfütterung (Beispiel)
+    double[] Q = {100.0, 50.0};
+    
+    // Energiebilanz
+    double balance = digesters.calcThermalEnergyBalance(
+        id, Q, substrates, T_ambient, sensors
+    );
+    
+    Console.WriteLine($"Fermenter {id}:");
+    Console.WriteLine($"  Energiebilanz: {balance:F1} kWh/d");
+    
+    if (balance < 0)
+    {
+        // Heizleistung berechnen
+        double heatPower = digesters.calcHeatPower(
+            id, Q, substrates, T_ambient, sensors
+        );
+        Console.WriteLine($"  Heizleistung: {heatPower:F1} kWh/d");
+        
+        // Kosten
+        double costs = digesters.calcCostsForHeating(
+            id,
+            new physValue(heatPower, "kWh/d"),
+            0.08,   // Wärmeverkauf
+            0.25    // Strom
+        );
+        Console.WriteLine($"  Heizkosten: {costs:F2} €/d");
+    }
+}
+```
+
+---
+
+## Klasse: `heating`
+
+Definiert eine Heizung zur Beheizung eines Fermenters.
+
+### Konstruktoren
+
+#### `heating()` / `heating(double eta)` / `heating(double eta, bool status)` / `heating(double eta, bool status, int type)`
+
+Erstellt Heizung mit verschiedenen Parametern.
+
+**Parameter:**
+- `eta` (double): Wirkungsgrad [100%]
+- `status` (bool): Ein/Aus (Standard: true)
+- `type` (int): 0 = elektrisch, 1 = thermisch (Standard: 1)
+
+### Eigenschaften
+
+```csharp
+public double eta           // Wirkungsgrad [100%]
+public bool status          // Ein (true) / Aus (false)
+public int type             // 0 = elektrisch, 1 = thermisch
+```
+
+### Methoden
+
+#### `compensateHeatLoss(physValue pP_loss, out physValue P_loss_kW, out physValue P_loss_kWh_d)`
+
+Berechnet benötigte Energie/Leistung zum Ausgleich von Wärmeverlusten.
+
+**Parameter:**
+- `pP_loss` (physValue): Wärmeverlust [W oder kWh/d]
+- `P_loss_kW` (out physValue): Leistung [kW]
+- `P_loss_kWh_d` (out physValue): Energie [kWh/d]
+
+**Formel:**
+```
+P_needed = P_loss / η
+```
+
+**Ausnahmen:**
+- `exception`: η = 0
+
+#### `calcCostsForHeating(physValue pP_loss, double sell_heat, double cost_elEnergy, out physValue P_loss_kW, out physValue P_loss_kWh_d)`
+
+Berechnet Heizkosten.
+
+**Parameter:**
+- `pP_loss` (physValue): Wärmeverlust
+- `sell_heat` (double): Wärmeverkaufspreis [€/kWh]
+- `cost_elEnergy` (double): Stromkosten [€/kWh]
+- `P_loss_kW`, `P_loss_kWh_d` (out physValue): Berechnete Leistungen
+
+**Rückgabe:**
+- `double`: Kosten [€/d]
+
+**Logik:**
+- Thermische Heizung (type=1): Entgangener Gewinn
+- Elektrische Heizung (type=0): Stromkosten
+- pP_loss < 0: Rückgabe = 0
+
+#### Datenmanagement
+
+##### `getParamsFromXMLReader(ref XmlTextReader reader)`
+
+Liest Heizung aus XML.
+
+##### `getParamsAsXMLString()`
+
+Gibt Heizung als XML zurück.
+
+##### `print()`
+
+Gibt Heizung formatiert aus.
+
+**Beispielausgabe:**
+```
+   ----------   HEATING   ----------   
+eta= 0.40 [100 %]		status= True		type= 1
+```
+
+##### `set_params_of(params object[] symbols)`
+
+Setzt Parameter.
+
+##### `get_params_of(out object[] variables, params string[] symbols)`
+
+Holt Parameter.
+
+---
+
+## Klasse: `stirrer`
+
+Definiert ein Rührwerk zur Durchmischung des Fermenterinhalts.
+
+### Konstruktoren
+
+#### `stirrer()` / `stirrer(string id, int dummy)` / `stirrer(string XMLfile)` / `stirrer(ref XmlTextReader reader, string id)`
+
+Erstellt Rührwerk mit verschiedenen Initialisierungen.
+
+### Eigenschaften
+
+```csharp
+public string id            // ID des Rührwerks
+public double eta_mixer     // Elektrischer Wirkungsgrad [100%]
+public double diameter      // Durchmesser [m]
+public double rotspeed      // Drehzahl [1/s]
+public double runtime       // Laufzeit pro Tag [h/d]
+public int type             // Typ (0-3)
+public bool stirred         // Aktiv (true/false)
+```
+
+**Rührwerk-Typen:**
+- 0: Zentral mit Strömungsbrecher
+- 1: Tauchmotor ohne Strömungsbrecher
+- 2: Zentral ohne Strömungsbrecher
+- 3: Tauchmotor mit Strömungsbrecher
+
+### Methoden
+
+#### `calcPelectrical(double Tdigester, double TSdigester)`
+
+Berechnet elektrische Leistung.
+
+**Parameter:**
+- `Tdigester` (double): Temperatur [°C]
+- `TSdigester` (double): TS-Gehalt [% FM]
+
+**Rückgabe:**
+- `double`: Elektrische Leistung [kWh/d]
+
+**Formel:**
+```
+P_el = P_mech / η_mixer × runtime / 1000
+```
+
+**Ausnahmen:**
+- `exception`: η_mixer = 0
+
+#### `calcPdissipation(double Tdigester, double TSdigester)`
+
+Berechnet dissipierte Leistung (Wärme).
+
+**Rückgabe:**
+- `double`: Dissipation [kWh/d]
+
+**Formel:**
+```
+P_diss = P_mech × runtime / 1000
+```
+
+#### Statische Methoden
+
+##### `static calc_K(double TSdigester)`
+
+Berechnet Konsistenzkoeffizienten.
+
+**Parameter:**
+- `TSdigester` (double): TS-Gehalt [% FM]
+
+**Rückgabe:**
+- `double`: K [Pa·s]
+
+**Formel:**
+```
+K = 0.05 × exp(0.45 × TS)
+```
+
+##### `static calc_nflow(double TSdigester)`
+
+Berechnet Fließindex.
+
+**Rückgabe:**
+- `double`: n_flow [100%]
+
+**Formel:**
+```
+n_flow = 0.67 × exp(-0.07 × TS)
+```
+
+#### Datenmanagement
+
+##### `getParamsFromXMLReader(ref XmlTextReader reader)`
+
+Liest Rührwerk aus XML.
+
+##### `getParamsAsXMLString()`
+
+Gibt Rührwerk als XML zurück.
+
+##### `print()`
+
+Gibt Rührwerk formatiert aus.
+
+**Beispielausgabe:**
+```
+   ----------   STIRRER   ----------   
+id: S1
+  eta_mixer= 0.70 [100 %]		diameter= 3.50 [m]		rotspeed= 0.20 [1/s]
+  runtime= 20.00 [h/d]		type= 0				stirred= True
+```
+
+---
+
+## Klasse: `stirrers`
+
+Liste von Rührwerken (erbt von `List<stirrer>`).
+
+### Methoden
+
+#### Verwaltung
+
+##### `addStirrer(stirrer myStirrer)`
+
+Fügt Rührwerk zur Liste hinzu.
+
+##### `deleteStirrer(string id)` / `deleteStirrer(int index)`
+
+Löscht Rührwerk.
+
+##### `get(string id)` / `get(int index)`
+
+Holt Rührwerk (index ist 1-basiert).
+
+##### `getNumStirrers()` / `getNumStirrersD()`
+
+Gibt Anzahl der Rührwerke zurück.
+
+#### Berechnungen
+
+##### `calcPelectrical(double Tdigester, double TSdigester)`
+
+Berechnet Gesamt-Elektrische Leistung aller Rührwerke.
+
+**Rückgabe:**
+- `double`: Summe [kWh/d]
+
+**Ausnahmen:**
+- `exception`: Berechnung für ein Rührwerk fehlgeschlagen
+
+##### `calcPdissipation(double Tdigester, double TSdigester)`
+
+Berechnet Gesamt-Dissipation aller Rührwerke.
+
+**Rückgabe:**
+- `double`: Summe [kWh/d]
+
+#### Parameter-Zugriff
+
+##### `get_param_of_s(int index, string symbol)` / `get_param_of_s(string id, string symbol)`
+
+Holt String-Parameter.
+
+##### `get_param_of_d(int index, string symbol)` / `get_param_of_d(string id, string symbol)`
+
+Holt double-Parameter.
+
+##### `get_param_of_i(int index, string symbol)` / `get_param_of_i(string id, string symbol)`
+
+Holt int-Parameter.
+
+##### `get_param_of(int index, string symbol)` / `get_param_of(string id, string symbol)`
+
+Holt physValue-Parameter als double.
+
+##### `set_params_of(int index, string symbol, ...)` / `set_params_of(string id, string symbol, ...)`
+
+Setzt Parameter (verschiedene Überladungen für string, double, int, physValue).
+
+---
+
+### Anwendungsbeispiele (Heizung und Rührwerke)
+
+#### Heizung konfigurieren
+
+```csharp
+// Thermische Heizung mit 85% Wirkungsgrad
+var heating = new heating(0.85, true, 1);
+
+// Elektrische Heizung mit 95% Wirkungsgrad
+var heating_el = new heating(0.95, true, 0);
+
+// Parameter ändern
+heating.set_params_of("eta", 0.90);
+heating.set_params_of("status", false);  // Ausschalten
+
+// Wärmeverlust kompensieren
+var P_loss = new physValue(500, "kW");
+physValue P_kW, P_kWh_d;
+heating.compensateHeatLoss(P_loss, out P_kW, out P_kWh_d);
+
+Console.WriteLine($"Benötigte Heizleistung: {P_kW.Value:F1} kW");
+Console.WriteLine($"Energiebedarf: {P_kWh_d.Value:F1} kWh/d");
+
+// Kosten berechnen
+double costs = heating.calcCostsForHeating(
+    P_loss, 
+    0.08,   // Wärmeverkauf
+    0.25,   // Strom
+    out P_kW, 
+    out P_kWh_d
+);
+Console.WriteLine($"Heizkosten: {costs:F2} €/d");
+```
+
+#### Rührwerke verwalten
+
+```csharp
+// Rührwerk erstellen
+var stirrer = new stirrer("S1", 0);
+stirrer.set_params_of(
+    "eta_mixer", 0.70,
+    "diameter", 3.5,
+    "rotspeed", 0.2,
+    "runtime", 20,
+    "type", 0,
+    "stirred", true
+);
+
+// Leistung berechnen
+double T = 40.0;    // °C
+double TS = 8.0;    // % FM
+
+double P_el = stirrer.calcPelectrical(T, TS);
+double P_diss = stirrer.calcPdissipation(T, TS);
+
+Console.WriteLine($"Elektrische Leistung: {P_el:F2} kWh/d");
+Console.WriteLine($"Dissipation (Wärme): {P_diss:F2} kWh/d");
+
+// Viskositätsparameter
+double K = stirrer.calc_K(TS);
+double n_flow = stirrer.calc_nflow(TS);
+
+Console.WriteLine($"Konsistenzkoeffizient: {K:F3} Pa·s");
+Console.WriteLine($"Fließindex: {n_flow:F3}");
+```
+
+#### Mehrere Rührwerke in einem Fermenter
+
+```csharp
+var stirrers = new stirrers();
+
+// Rührwerk 1: Zentral
+var s1 = new stirrer("S1", 0);
+s1.set_params_of(
+    "eta_mixer", 0.70,
+    "diameter", 4.0,
+    "rotspeed", 0.15,
+    "runtime", 24,
+    "type", 0
+);
+
+// Rührwerk 2: Tauchmotor
+var s2 = new stirrer("S2", 0);
+s2.set_params_of(
+    "eta_mixer", 0.75,
+    "diameter", 2.5,
+    "rotspeed", 0.25,
+    "runtime", 12,
+    "type", 1
+);
+
+stirrers.addStirrer(s1);
+stirrers.addStirrer(s2);
+
+// Gesamt-Leistung
+double T = 42.0;
+double TS = 7.5;
+
+double P_el_total = stirrers.calcPelectrical(T, TS);
+double P_diss_total = stirrers.calcPdissipation(T, TS);
+
+Console.WriteLine($"Anzahl Rührwerke: {stirrers.getNumStirrers()}");
+Console.WriteLine($"Gesamt el. Leistung: {P_el_total:F2} kWh/d");
+Console.WriteLine($"Gesamt Dissipation: {P_diss_total:F2} kWh/d");
+```
+
+---
+
+## TODOs
+
+Laut Quellcode:
+
+### In `digester_energy.cs`
+
+- Berechnung der radiation loss verändern (erledigt)
+- Thermische Quellen zu `calcThermalEnergyBalance()` hinzufügen (erledigt)
+
+### In `digester_params.cs`
+
+- `calcOLR()` verstehen und dokumentieren
+- Dokumentation von Methoden kann noch verbessert werden
+- `calcTS()` berechnet nur Steady-State korrekt, da Aschegehalt im Fermenter nicht dynamisch berücksichtigt wird
+
+### In `stirrer.cs`
+
+- Methoden substratabhängig machen: K, nflow, alpha_T
+- K, nflow, alpha_T sollten variabel sein (derzeit feste Koeffizienten)
+
+---
+
+## Best Practices
+
+### 1. Fermenter-Geometrie
+
+```csharp
+// GUT: Konsistente Parameter
+var fermenter = new digester("F1", "Fermenter");
+fermenter.set_params_of(
+    "Vliq", 2500.0,    // Bestimmt height
+    "Vgas", 500.0,     // Bestimmt h_roof
+    "diam", 20.0       // Basis für Flächen
+);
+
+// height, h_roof, Awall, Aroof, Aground werden automatisch berechnet
+var height = fermenter.height;
+var Awall = fermenter.Awall;
+
+// VERMEIDEN: Inkonsistente Dimensionen
+// (z.B. Vliq zu groß für gegebenen Durchmesser)
+```
+
+### 2. Wärmebilanz
+
+```csharp
+// GUT: Komponenten einzeln analysieren
+physValue P_subs, P_rad, P_micro, P_stirr;
+double balance = fermenter.calcThermalEnergyBalance(
+    Q, substrates, T_ambient, sensors,
+    out P_subs, out P_rad, out P_micro, out P_stirr
+);
+
+Console.WriteLine("Energiebilanz-Komponenten:");
+Console.WriteLine($"  Substrataufheizung: {P_subs.Value:F1} kWh/d");
+Console.WriteLine($"  Strahlungsverluste: {P_rad.Value:F1} kWh/d");
+Console.WriteLine($"  Mikrobiologie: {P_micro.Value:F1} kWh/d");
+Console.WriteLine($"  Rührwerk: {P_stirr.Value:F1} kWh/d");
+Console.WriteLine($"  Gesamt: {balance:F1} kWh/d");
+```
+
+### 3. ADM-Parameter
+
+```csharp
+// GUT: Standard-Parameter als Basis
+double[] adm_default = fermenter.getDefaultADMparams();
+
+// Bei Bedarf einzelne Parameter anpassen
+fermenter.setADMparameter(1, 0.3);  // kdis
+
+// Substratabhängige Parameter aktualisieren
+double[] adm_updated = fermenter.getADMparams(
+    t, sensors, substrates, Q_network
+);
+
+// VERMEIDEN: Direkt mit ADM-Objekt arbeiten
+// var adm = fermenter.AD_Model;  // Besser: Über Fermenter-Methoden
+```
+
+### 4. Rührwerks-Typen
+
+```csharp
+// Typ basierend auf Fermenter-Design wählen:
+// Typ 0: Standard (zentral mit Strömungsbrecher)
+var stirrer_standard = new stirrer("S1", 0);
+stirrer_standard.set_params_of("type", 0);
+
+// Typ 1: Tauchmotor ohne Strömungsbrecher (für kleine Fermenter)
+var stirrer_small = new stirrer("S2", 0);
+stirrer_small.set_params_of("type", 1);
+
+// Typ 2/3: Spezialfälle (selten)
+```
+
+### 5. Prozessparameter-Überwachung
+
+```csharp
+// GUT: Regelmäßig HRT, OLR, TS/VS prüfen
+double[] x = /* ADM-Zustand */;
+double[] Q = {100.0, 50.0};
+double Q_total = 150.0;
+
+var HRT = digester.calcHRT(Q, fermenter.Vliq);
+var OLR = fermenter.calcOLR(x, substrates, Q, Q_total);
+physValue TS;
+var VS = digester.calcVS(x, substrates, Q, out TS);
+
+// Warnschwellen prüfen
+if (HRT.Value < 20)
+    Console.WriteLine("Warnung: HRT zu niedrig!");
+if (OLR.Value > 4.0)
+    Console.WriteLine("Warnung: OLR zu hoch!");
+if (VS.Value < 70)
+    Console.WriteLine("Warnung: VS zu niedrig!");
+```
+
+---
+
+## Siehe auch
+
+- **biogas.ADM**: Anaerobic Digestion Model
+- **biogas.substrates**: Substrat-Definition
+- **biogas.sensors**: Messdatenerfassung
+- **biogas.plant**: Anlagenintegration
+- **biogas.chemistry**: Physikochemische Berechnungen
+
+---
+
+*Dokumentation erstellt für biogas_c# Toolbox*  
+*Stand: Januar 2026*
