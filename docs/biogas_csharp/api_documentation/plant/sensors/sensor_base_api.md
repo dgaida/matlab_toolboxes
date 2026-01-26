@@ -929,4 +929,897 @@ Liest Sensor-Parameter aus XML.
 
 #### `getParamsAsXMLString()` (Virtual)
 
-Gibt Sensor-Konfiguration als
+Gibt Sensor-Konfiguration als XML-String zurück.
+
+**Rückgabe:**
+- `string`: XML-String mit Sensor-Konfiguration
+
+**XML-Struktur:**
+```xml
+<sensor id="pH_F1_3" spec="pH">
+    <id_suffix>F1_3</id_suffix>
+    <name>pH sensor F1_3</name>
+    <dimension>1</dimension>
+    <sensor_config index="0">
+        <apply_real_sensor>0</apply_real_sensor>
+        <noise_level>0.05</noise_level>
+        <y_min>0</y_min>
+        <y_max>14</y_max>
+        <drift_rate>0.001</drift_rate>
+        <sampling_time>0.5</sampling_time>
+    </sensor_config>
+</sensor>
+```
+
+**Beispiel:**
+```csharp
+string xml = sensor.getParamsAsXMLString();
+Console.WriteLine(xml);
+
+// In Datei speichern
+System.IO.File.WriteAllText("sensor_config.xml", xml);
+```
+
+### Ausgabe
+
+#### `print()` (Virtual)
+
+Gibt formatierte Sensor-Information aus.
+
+**Rückgabe:**
+- `string`: Formatierter String mit Sensor-Details
+
+**Ausgabeformat:**
+```
+   ----------   Sensor   pH sensor F1_3   ----------   
+id: pH_F1_3
+   ---------- ---------- ---------- ----------   
+```
+
+**Beispiel:**
+```csharp
+Console.WriteLine(sensor.print());
+```
+
+---
+
+## Private Felder und Eigenschaften
+
+### Private Felder
+
+#### `_id` (Private Field)
+
+```csharp
+private string _id = "";
+```
+
+Eindeutige Sensor-ID. Format: `{spec}_{id_suffix}`
+
+#### `_id_suffix` (Private Field)
+
+```csharp
+private string _id_suffix = "";
+```
+
+ID-Suffix des Sensors (Fermenter-ID, etc.)
+
+#### `_name` (Private Field)
+
+```csharp
+private string _name = "";
+```
+
+Beschreibender Name des Sensors.
+
+#### `_dimension` (Private Field)
+
+```csharp
+private int _dimension = 1;
+```
+
+Anzahl gleichzeitig gemessener Werte.
+
+#### `time` (Private Field)
+
+```csharp
+private List<double> time = new List<double>();
+```
+
+Zeitvektor aller Messungen [d].
+
+**Hinweis:** Könnte als `physValue` implementiert werden (TODO).
+
+#### `values` (Private Field)
+
+```csharp
+private List<physValue[]> values = new List<physValue[]>();
+```
+
+Liste aller Messwert-Vektoren (ohne Rauschen).
+
+#### `values_noise` (Private Field)
+
+```csharp
+private List<physValue[]> values_noise = new List<physValue[]>();
+```
+
+Liste aller Messwert-Vektoren (mit Rauschen).
+
+**Hinweis:** Identisch mit `values` wenn `apply_real_sensor = false`.
+
+#### `myConfigs` (Private Field)
+
+```csharp
+private sensor_config[] myConfigs;
+```
+
+Array mit Sensor-Konfigurationen (eine pro Dimension).
+
+### Protected Felder
+
+#### `_type` (Protected Field)
+
+```csharp
+protected int _type = 0;
+```
+
+Sensor-Typ (bestimmt `doMeasurement`-Signatur).
+
+**Werte:** 0-9 (siehe Typ-Übersicht oben)
+
+---
+
+## Private Methoden
+
+### `addMeasurement(double t, physValue[] value)`
+
+Fügt neue Messung zur internen Liste hinzu.
+
+**Parameter:**
+- `t` (double): Messzeit [d]
+- `value` (physValue[]): Messwert-Vektor
+
+**Seiteneffekte:**
+- Fügt `value` zu `values` hinzu
+- Fügt verrauschten Wert zu `values_noise` hinzu (über `sensor_config.getNoisyMeasurement`)
+- Fügt `t` zu `time` hinzu
+
+**Interne Logik:**
+```csharp
+double last_t = time.Count > 0 ? time[time.Count - 1] : 0;
+physValue[] last_signals = values.Count > 0 ? values[values.Count - 1] : new physValue[0];
+
+values.Add(value);
+values_noise.Add(sensor_config.getNoisyMeasurement(t, last_t, value, last_signals, myConfigs));
+time.Add(t);
+```
+
+**Hinweis:** Diese Methode wird automatisch von allen `measure()`-Methoden aufgerufen.
+
+---
+
+## Sensor-Konfiguration (sensor_config)
+
+Jeder Sensor hat ein oder mehrere `sensor_config`-Objekte (eines pro Dimension).
+
+### Wichtige sensor_config-Parameter
+
+```csharp
+sensor.myConfigs[index].apply_real_sensor    // bool: Rauschen aktivieren
+sensor.myConfigs[index].noise_level          // double: Rausch-Stärke
+sensor.myConfigs[index].y_min                // double: Minimaler Messwert
+sensor.myConfigs[index].y_max                // double: Maximaler Messwert
+sensor.myConfigs[index].drift_rate           // double: Sensor-Drift
+sensor.myConfigs[index].sampling_time        // double: Abtastzeit [d]
+```
+
+**Beispiel:**
+```csharp
+// Sensor-Konfiguration setzen
+var pH_sensor = new pH_sensor("F1_3");
+pH_sensor.myConfigs[0].apply_real_sensor = true;
+pH_sensor.myConfigs[0].noise_level = 0.05;  // 5% Rauschen
+pH_sensor.myConfigs[0].y_min = 0.0;
+pH_sensor.myConfigs[0].y_max = 14.0;
+```
+
+---
+
+## Anwendungsbeispiele
+
+### Beispiel 1: Einfacher Sensor
+
+```csharp
+using biogas;
+using science;
+
+// Sensor erstellen
+var pH_sensor = new pH_sensor("F1_3");
+
+// Simulation
+for (double t = 0; t < 10; t += 0.5)
+{
+    // ADM-Stream simulieren
+    double[] stream = new double[34];
+    stream[19] = 1e-7;  // H+ Konzentration für pH 7
+    
+    // Messen
+    physValue[] pH_values = pH_sensor.measure(t, 0.5, stream);
+    
+    Console.WriteLine($"t={t:F1} d: pH={pH_values[0].Value:F2}");
+}
+
+// Gesamten Verlauf abrufen
+double[] time = pH_sensor.getTimeStream();
+physValue[] pH_stream = pH_sensor.getMeasurementStream(0);
+
+Console.WriteLine($"\nGesamt-Messungen: {time.Length}");
+```
+
+**Ausgabe:**
+```
+t=0.0 d: pH=7.00
+t=0.5 d: pH=7.00
+t=1.0 d: pH=7.00
+...
+t=9.5 d: pH=7.00
+
+Gesamt-Messungen: 20
+```
+
+### Beispiel 2: Mehrdimensionaler Sensor
+
+```csharp
+using biogas;
+using science;
+
+// VFA-Matrix-Sensor (4 Dimensionen)
+var vfa_sensor = new VFAmatrix_sensor("F1_3");
+
+// Simulation
+double[] stream = /* ADM-Stream mit VFA-Werten */;
+
+physValue[] vfa = vfa_sensor.measure(5.0, 0.5, stream);
+
+Console.WriteLine("VFA-Komponenten:");
+Console.WriteLine($"Valeriansäure: {vfa[0].Value:F2} {vfa[0].Unit}");
+Console.WriteLine($"Buttersäure: {vfa[1].Value:F2} {vfa[1].Unit}");
+Console.WriteLine($"Propionsäure: {vfa[2].Value:F2} {vfa[2].Unit}");
+Console.WriteLine($"Essigsäure: {vfa[3].Value:F2} {vfa[3].Unit}");
+
+// Einzelne Komponente abrufen
+physValue acetat = vfa_sensor.getCurrentMeasurement(3);  // Index 3 = Sac
+Console.WriteLine($"\nAcetat: {acetat.Value:F2} {acetat.Unit}");
+
+// Gesamten Verlauf einer Komponente
+physValue[] acetat_stream = vfa_sensor.getMeasurementStream(3);
+```
+
+### Beispiel 3: Sensor mit Parametern
+
+```csharp
+using biogas;
+using science;
+
+// HRT-Sensor (benötigt Vliq-Parameter)
+var hrt_sensor = new HRT_sensor("F1");
+
+// Fermenter-Volumen
+double Vliq = 2500.0;  // m³
+
+// Simulation
+for (double t = 0; t < 30; t += 1.0)
+{
+    double[] stream = /* ADM-Stream */;
+    
+    // Mit Parameter messen
+    physValue[] hrt = hrt_sensor.measure(t, 1.0, stream, Vliq);
+    
+    Console.WriteLine($"Tag {t:F0}: HRT = {hrt[0].Value:F1} d");
+    
+    // Warnung bei zu kurzer HRT
+    if (hrt[0].Value < 20.0)
+    {
+        Console.WriteLine("  WARNUNG: HRT zu kurz!");
+    }
+}
+```
+
+### Beispiel 4: Realistischer Sensor mit Rauschen
+
+```csharp
+using biogas;
+using science;
+
+// Sensor mit Rauschen erstellen
+var pH_sensor = new pH_sensor("F1_3");
+
+// Rauschen aktivieren
+pH_sensor.myConfigs[0].apply_real_sensor = true;
+pH_sensor.myConfigs[0].noise_level = 0.05;  // 5% Rauschen
+pH_sensor.myConfigs[0].drift_rate = 0.001;  // Langsamer Drift
+
+// Simulation
+double[] stream = new double[34];
+stream[19] = 1e-7;  // pH 7.0
+
+for (double t = 0; t < 10; t += 0.5)
+{
+    pH_sensor.measure(t, 0.5, stream);
+}
+
+// Ideale vs. verrauschte Werte
+double[] time = pH_sensor.getTimeStream();
+physValue[] pH_ideal = pH_sensor.getMeasurementStream(0, false);
+physValue[] pH_noisy = pH_sensor.getMeasurementStream(0, true);
+
+Console.WriteLine("Zeit\tIdeal\tVerrauscht");
+for (int i = 0; i < time.Length; i++)
+{
+    Console.WriteLine($"{time[i]:F1}\t{pH_ideal[i].Value:F3}\t{pH_noisy[i].Value:F3}");
+}
+```
+
+**Ausgabe:**
+```
+Zeit    Ideal   Verrauscht
+0.0     7.000   7.023
+0.5     7.000   6.975
+1.0     7.000   7.041
+1.5     7.000   6.982
+...
+```
+
+### Beispiel 5: Sensor-Zeitreihe analysieren
+
+```csharp
+using biogas;
+using science;
+using System.Linq;
+
+var vfa_sensor = new VFA_sensor("F1_3");
+
+// Simulation über 30 Tage
+for (double t = 0; t < 30; t += 0.5)
+{
+    double[] stream = /* ADM-Stream */;
+    vfa_sensor.measure(t, 0.5, stream);
+}
+
+// Zeitreihe auswerten
+double[] time = vfa_sensor.getTimeStream();
+physValue[] vfa_stream = vfa_sensor.getMeasurementStream(0);
+
+// In double-Array konvertieren
+double[] vfa_values = vfa_stream.Select(pv => pv.Value).ToArray();
+
+// Statistiken
+double min = vfa_values.Min();
+double max = vfa_values.Max();
+double mean = vfa_values.Average();
+double std = Math.Sqrt(vfa_values.Select(v => Math.Pow(v - mean, 2)).Average());
+
+Console.WriteLine("VFA-Statistiken:");
+Console.WriteLine($"  Min: {min:F1} mg/l");
+Console.WriteLine($"  Max: {max:F1} mg/l");
+Console.WriteLine($"  Mean: {mean:F1} mg/l");
+Console.WriteLine($"  StdDev: {std:F1} mg/l");
+
+// Überschreitungen zählen
+int warnings = vfa_values.Count(v => v > 3000);
+Console.WriteLine($"\nWarnungen (VFA > 3000 mg/l): {warnings}");
+
+// Kritische Zeitpunkte finden
+Console.WriteLine("\nKritische Zeitpunkte:");
+for (int i = 0; i < vfa_values.Length; i++)
+{
+    if (vfa_values[i] > 3000)
+    {
+        Console.WriteLine($"  Tag {time[i]:F1}: {vfa_values[i]:F1} mg/l");
+    }
+}
+```
+
+### Beispiel 6: Messwert zu bestimmter Zeit
+
+```csharp
+using biogas;
+using science;
+
+var pH_sensor = new pH_sensor("F1_3");
+
+// Simulation
+for (double t = 0; t <= 30; t += 0.5)
+{
+    double[] stream = /* ... */;
+    pH_sensor.measure(t, 0.5, stream);
+}
+
+// Werte zu bestimmten Zeitpunkten
+double[] times_of_interest = {0.0, 5.0, 10.0, 15.0, 20.0, 25.0, 30.0};
+
+Console.WriteLine("pH zu bestimmten Zeitpunkten:");
+foreach (double t in times_of_interest)
+{
+    physValue pH = pH_sensor.getMeasurementAt(0, t);
+    Console.WriteLine($"Tag {t:F0}: pH = {pH.Value:F2}");
+}
+
+// Nächstliegende Messung
+physValue pH_day_7_3 = pH_sensor.getMeasurementAt(0, 7.3);  // Findet Messung bei t=7.0 oder t=7.5
+```
+
+### Beispiel 7: Sensor persistieren und laden
+
+```csharp
+using biogas;
+using science;
+
+// Sensor erstellen und konfigurieren
+var pH_sensor = new pH_sensor("F1_3");
+pH_sensor.myConfigs[0].apply_real_sensor = true;
+pH_sensor.myConfigs[0].noise_level = 0.05;
+pH_sensor.myConfigs[0].y_min = 0.0;
+pH_sensor.myConfigs[0].y_max = 14.0;
+
+// Als XML speichern
+string xml = pH_sensor.getParamsAsXMLString();
+System.IO.File.WriteAllText("pH_sensor_config.xml", xml);
+
+Console.WriteLine("Sensor gespeichert in pH_sensor_config.xml");
+Console.WriteLine(xml);
+
+// Später: Sensor aus XML laden
+var loaded_sensor = new pH_sensor("pH_sensor_config.xml");
+
+Console.WriteLine($"\nGeladener Sensor:");
+Console.WriteLine($"  ID: {loaded_sensor.id}");
+Console.WriteLine($"  Name: {loaded_sensor.name}");
+Console.WriteLine($"  Rauschen: {loaded_sensor.myConfigs[0].apply_real_sensor}");
+Console.WriteLine($"  Noise Level: {loaded_sensor.myConfigs[0].noise_level}");
+```
+
+### Beispiel 8: Custom Sensor erstellen
+
+```csharp
+using biogas;
+using science;
+
+/// <summary>
+/// Custom Sensor: Misst das Verhältnis VFA/TS
+/// </summary>
+public class VFA_TS_sensor : sensor
+{
+    public VFA_TS_sensor(string id_suffix) :
+        base($"VFA_TS_{id_suffix}", 
+             $"VFA/TS ratio sensor {id_suffix}", 
+             id_suffix)
+    {
+        _type = 0;  // Stream-Sensor
+    }
+    
+    public override string spec 
+    { 
+        get { return "VFA_TS"; } 
+    }
+    
+    protected override physValue[] doMeasurement(double[] x, params double[] par)
+    {
+        physValue[] values = new physValue[1];
+        
+        // VFA aus ADM-Stream berechnen
+        physValue vfa = ADMstate.calcVFAOfADMstate(x, "gHAceq/l");
+        
+        // TS müsste separat berechnet werden - hier vereinfacht
+        double ts = 10.0;  // Annahme: 10% TS
+        
+        // Verhältnis berechnen
+        double ratio = vfa.Value / ts;
+        
+        values[0] = new physValue("VFA_TS", ratio, "gHAceq/(l·%TS)", 
+                                  "VFA to TS ratio");
+        
+        return values;
+    }
+}
+
+// Verwendung
+var custom_sensor = new VFA_TS_sensor("F1_3");
+double[] stream = /* ADM-Stream */;
+physValue[] ratio = custom_sensor.measure(5.0, 0.5, stream);
+
+Console.WriteLine($"VFA/TS: {ratio[0].Value:F2} {ratio[0].Unit}");
+```
+
+---
+
+## Häufige Fehler und Lösungen
+
+### Problem 1: Dimension-Inkonsistenz
+
+```csharp
+// FEHLER: doMeasurement gibt falschen Vektor zurück
+protected override physValue[] doMeasurement(double[] x, params double[] par)
+{
+    physValue[] values = new physValue[2];  // Dimension = 2 deklariert
+    values[0] = new physValue("val1", 5.0, "unit");
+    // values[1] nicht gesetzt!
+    return values;  // NullReferenceException später!
+}
+
+// LÖSUNG: Alle Elemente setzen
+protected override physValue[] doMeasurement(double[] x, params double[] par)
+{
+    physValue[] values = new physValue[dimension];
+    for (int i = 0; i < dimension; i++)
+    {
+        values[i] = new physValue($"val{i}", i * 1.0, "unit");
+    }
+    return values;
+}
+```
+
+### Problem 2: Sampling-Zeit ignoriert
+
+```csharp
+// PROBLEM: Messung bei jeder Zeit, unabhängig von deltatime
+for (double t = 0; t < 10; t += 0.01)  // Alle 14.4 Minuten
+{
+    sensor.measure(t, 0.5, stream);  // deltatime = 0.5 Tage (12 Stunden)
+}
+// Nur ~20 Messungen gespeichert (alle 0.5 Tage)
+
+// BESSER: Zeitschritt an deltatime anpassen
+for (double t = 0; t < 10; t += 0.5)  // Alle 12 Stunden
+{
+    sensor.measure(t, 0.5, stream);
+}
+```
+
+### Problem 3: Index-Zugriff außerhalb der Grenzen
+
+```csharp
+// FEHLER: Falscher Index
+var vfa_sensor = new VFAmatrix_sensor("F1_3");  // dimension = 4
+vfa_sensor.measure(5.0, 0.5, stream);
+
+physValue val = vfa_sensor.getCurrentMeasurement(4);  // Exception! Index 0-3
+
+// LÖSUNG: 0-basierte Indizierung
+physValue sva = vfa_sensor.getCurrentMeasurement(0);  // OK
+physValue sbu = vfa_sensor.getCurrentMeasurement(1);  // OK
+physValue spro = vfa_sensor.getCurrentMeasurement(2);  // OK
+physValue sac = vfa_sensor.getCurrentMeasurement(3);  // OK
+```
+
+### Problem 4: Falsche doMeasurement-Signatur
+
+```csharp
+// FEHLER: Sensor-Typ nicht mit doMeasurement übereinstimmend
+public class MyCustomSensor : sensor
+{
+    public MyCustomSensor(string id_suffix) : base(...)
+    {
+        _type = 0;  // Typ 0: doMeasurement(double[] x)
+    }
+    
+    // FALSCH: Typ 1 Signatur für Typ 0 Sensor
+    protected override physValue[] doMeasurement(double[] x, params double[] par)
+    {
+        // ...
+    }
+}
+
+// LÖSUNG: Korrekte Typ-Signatur verwenden
+public class MyCustomSensor : sensor
+{
+    public MyCustomSensor(string id_suffix) : base(...)
+    {
+        _type = 1;  // Typ 1: doMeasurement(double[] x, params double[] par)
+    }
+    
+    protected override physValue[] doMeasurement(double[] x, params double[] par)
+    {
+        // ...
+    }
+}
+```
+
+### Problem 5: Messwerte ohne Messung abrufen
+
+```csharp
+// FEHLER: Kein measure() aufgerufen
+var sensor = new pH_sensor("F1_3");
+physValue pH = sensor.getCurrentMeasurement();  // Exception oder 0-Vektor
+
+// LÖSUNG: Erst messen
+var sensor = new pH_sensor("F1_3");
+double[] stream = /* ... */;
+sensor.measure(5.0, 0.5, stream);
+physValue pH = sensor.getCurrentMeasurement();  // OK
+```
+
+### Problem 6: physValue-Einheiten nicht beachtet
+
+```csharp
+// PROBLEM: Annahme über Einheit
+var vfa_sensor = new VFA_sensor("F1_3");
+vfa_sensor.measure(5.0, 0.5, stream);
+physValue vfa = vfa_sensor.getCurrentMeasurement();
+
+// Falsche Annahme: VFA ist in mg/l
+double vfa_mg_l = vfa.Value;  // Aber vfa ist in gHAceq/l!
+
+// BESSER: Einheit prüfen oder konvertieren
+Console.WriteLine($"VFA: {vfa.Value} {vfa.Unit}");
+
+// Oder: Einheit konvertieren
+physValue vfa_converted = vfa.convertUnit("mg/l");  // Falls möglich
+```
+
+---
+
+## Performance-Tipps
+
+### 1. Unnötige Objekt-Erstellung vermeiden
+
+```csharp
+// LANGSAM: Neue physValue-Arrays bei jedem Zugriff
+for (int i = 0; i < 1000; i++)
+{
+    physValue[] vfa = sensor.getCurrentMeasurementVector();
+    double sum = vfa[0].Value + vfa[1].Value + vfa[2].Value + vfa[3].Value;
+}
+
+// SCHNELLER: Einmal holen
+physValue[] vfa = sensor.getCurrentMeasurementVector();
+for (int i = 0; i < 1000; i++)
+{
+    double sum = vfa[0].Value + vfa[1].Value + vfa[2].Value + vfa[3].Value;
+}
+```
+
+### 2. getMeasurementStream() sparsam nutzen
+
+```csharp
+// LANGSAM: Stream bei jedem Zugriff kopieren
+for (int i = 0; i < 100; i++)
+{
+    physValue[] stream = sensor.getMeasurementStream(0);
+    double last = stream[stream.Length - 1].Value;
+}
+
+// SCHNELLER: getCurrentMeasurement() für letzten Wert
+for (int i = 0; i < 100; i++)
+{
+    physValue last = sensor.getCurrentMeasurement(0);
+}
+```
+
+### 3. Direkte double-Zugriffe nutzen
+
+```csharp
+// LANGSAM: physValue erstellen
+physValue pH = sensor.getCurrentMeasurement(0);
+double pH_val = pH.Value;
+string pH_unit = pH.Unit;
+
+// Wenn nur Wert benötigt wird:
+double pH_val = sensor.getCurrentMeasurement(0).Value;
+```
+
+### 4. isEmpty() vor Zugriff prüfen
+
+```csharp
+// INEFFIZIENT: Exception handling
+try
+{
+    physValue val = sensor.getCurrentMeasurement();
+}
+catch
+{
+    // Keine Daten
+}
+
+// BESSER: Vorher prüfen
+if (!sensor.isEmpty())
+{
+    physValue val = sensor.getCurrentMeasurement();
+}
+```
+
+---
+
+## Best Practices
+
+### 1. Aussagekräftige Sensor-IDs
+
+```csharp
+// GUT: Klare Struktur
+var pH_in = new pH_sensor("F1_2");   // Fermenter 1, Eingang
+var pH_out = new pH_sensor("F1_3");  // Fermenter 1, Ausgang
+var vfa = new VFA_sensor("F1_3");
+
+// VERMEIDEN: Unklare IDs
+var sensor1 = new pH_sensor("a");
+var sensor2 = new pH_sensor("b");
+```
+
+### 2. Dimension in Konstruktor setzen
+
+```csharp
+// GUT: Dimension im Konstruktor
+public class MyMultiSensor : sensor
+{
+    public MyMultiSensor(string id_suffix) :
+        base($"multi_{id_suffix}", 
+             $"Multi sensor {id_suffix}", 
+             id_suffix,
+             5)  // 5 Dimensionen
+    {
+        _type = 0;
+    }
+    
+    protected override physValue[] doMeasurement(double[] x, params double[] par)
+    {
+        physValue[] values = new physValue[dimension];  // = 5
+        // ...
+        return values;
+    }
+}
+```
+
+### 3. Sinnvolle physValue-Attribute
+
+```csharp
+// GUT: Vollständige physValue
+protected override physValue[] doMeasurement(double[] x, params double[] par)
+{
+    physValue[] values = new physValue[1];
+    values[0] = new physValue(
+        "pH",                  // Symbol
+        7.2,                   // Value
+        "-",                   // Unit
+        "pH value"             // Label
+    );
+    return values;
+}
+
+// VERMEIDEN: Unvollständige physValue
+values[0] = new physValue(7.2);  // Keine Symbol, Unit, Label
+```
+
+### 4. Konsistente Typ-Definitionen
+
+```csharp
+// GUT: Typ entspricht doMeasurement
+public class MyStreamSensor : sensor
+{
+    public MyStreamSensor(string id_suffix) : base(...)
+    {
+        _type = 0;  // Stream-Sensor
+    }
+    
+    protected override physValue[] doMeasurement(double[] x, params double[] par)
+    {
+        // Typ 0: nur x-Parameter
+    }
+}
+
+public class MyParamSensor : sensor
+{
+    public MyParamSensor(string id_suffix) : base(...)
+    {
+        _type = 1;  // Mit Parametern
+    }
+    
+    protected override physValue[] doMeasurement(double[] x, params double[] par)
+    {
+        // Typ 1: x und par nutzen
+        double Vliq = par[0];
+    }
+}
+```
+
+### 5. XML-Persistenz nutzen
+
+```csharp
+// GUT: Konfiguration speichern
+var sensor = new pH_sensor("F1_3");
+sensor.myConfigs[0].apply_real_sensor = true;
+sensor.myConfigs[0].noise_level = 0.05;
+
+string xml = sensor.getParamsAsXMLString();
+System.IO.File.WriteAllText("config.xml", xml);
+
+// Später laden
+var loaded = new pH_sensor("config.xml");
+```
+
+---
+
+## Zusammenfassung
+
+### Sensor-Erstellung
+
+```csharp
+// Minimal
+public class MySensor : sensor
+{
+    public MySensor(string id_suffix) :
+        base($"my_{id_suffix}", $"My sensor {id_suffix}", id_suffix)
+    {
+        _type = 0;
+    }
+    
+    public override string spec { get { return "my"; } }
+    
+    protected override physValue[] doMeasurement(double[] x, params double[] par)
+    {
+        physValue[] values = new physValue[dimension];
+        // ... Messung durchführen ...
+        return values;
+    }
+}
+```
+
+### Sensor-Verwendung
+
+```csharp
+// Erstellen
+var sensor = new MySensor("F1_3");
+
+// Messen
+double[] stream = /* ... */;
+physValue[] measured = sensor.measure(5.0, 0.5, stream);
+
+// Aktuellen Wert abrufen
+physValue current = sensor.getCurrentMeasurement();
+
+// Verlauf abrufen
+double[] time = sensor.getTimeStream();
+physValue[] stream = sensor.getMeasurementStream(0);
+```
+
+### Wichtigste Methoden
+
+**Messen:**
+- `measure(double time, double deltatime, double[] x, ...)`
+
+**Abrufen:**
+- `getCurrentMeasurement()` / `getCurrentMeasurement(int index)`
+- `getMeasurementAt(double t)` / `getMeasurementAt(int index, double t)`
+- `getMeasurementStream(int index)`
+- `getTimeStream()`
+
+**Verwaltung:**
+- `deleteData()`
+- `isEmpty()`
+- `getParamsAsXMLString()`
+
+---
+
+## TODOs
+
+Laut Quellcode:
+
+### sensor.cs
+- `time` als `physValue` implementieren (aktuell `List<double>`)
+- Mehrdimensionale Daten: Alle skalaren Größen als Listen/Vektoren definieren (noise_level, y_min, etc.) - **Gelöst via sensor_config**
+
+### sensor_properties.cs
+- Evtl. weitere Properties für besseren Zugriff
+
+---
+
+## Siehe auch
+
+- **biogas.sensors**: Sensor-Verwaltungsklasse
+- **biogas.sensor_config**: Sensor-Konfigurationsklasse (Rauschen, Drift, etc.)
+- **science.physValue**: Physikalische Werte mit Einheiten
+- Spezifische Sensor-Implementierungen (pH_sensor, VFA_sensor, etc.)
+
+---
+
+*Dokumentation erstellt für biogas_c# Toolbox*  
+*Stand: Januar 2026*
