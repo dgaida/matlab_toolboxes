@@ -888,4 +888,844 @@ q_array.addSensor(new Q_sensor("maize"));  // Nicht gefunden!
 ```csharp
 // GUT: ID beschreibt Sensor-Typ
 var q_array = new sensor_array("Q");
-var params_array = new sensor_array("
+var params_array = new sensor_array("substrateparams");
+
+// VERMEIDEN: Unklare IDs
+var array1 = new sensor_array("array1");
+var array2 = new sensor_array("my_sensors");
+```
+
+### 3. Sensor-Array-Netzwerk aufbauen
+
+```csharp
+// GUT: Q-Array für alle Substrate
+var substrates = new substrates("substrates.xml");
+var q_array = new sensor_array("Q");
+
+foreach (substrate s in substrates)
+{
+    q_array.addSensor(new Q_sensor(s.id));
+}
+
+// Alle Substrate sind jetzt überwacht
+```
+
+### 4. getMeasurementDAt korrekt verwenden
+
+```csharp
+// GUT: Substrate-Liste übergeben
+var substrates = new substrates();
+substrates.addSubstrate(new substrate("maize"));
+substrates.addSubstrate(new substrate("manure"));
+
+double Q_sum = q_array.getMeasurementDAt(
+    substrates,  // Filtert auf diese Substrate
+    "sum",
+    5.0,
+    0,
+    false
+);
+
+// VERMEIDEN: Leere Substrat-Liste
+var empty_substrates = new substrates();
+double Q_sum = q_array.getMeasurementDAt(
+    empty_substrates,  // Gibt 0 zurück!
+    "sum",
+    5.0,
+    0,
+    false
+);
+```
+
+### 5. XML-Struktur konsistent
+
+```csharp
+// GUT: Sensor-Array mit konsistenter Spezifikation
+var q_array = new sensor_array("Q");
+q_array.addSensor(new Q_sensor("maize"));
+q_array.addSensor(new Q_sensor("manure"));
+q_array.addSensor(new Q_sensor("grass"));
+
+string xml = q_array.getParamsAsXMLString();
+// Alle Sensoren haben spec="Q"
+
+// VERMEIDEN: Verschiedene Sensor-Typen im Array
+var mixed_array = new sensor_array("mixed");
+mixed_array.addSensor(new Q_sensor("maize"));
+mixed_array.addSensor(new pH_sensor("F1_3"));  // Falscher Typ!
+```
+
+---
+
+## Erweiterte Konzepte
+
+### Sensor-Array als Filter
+
+Das Sensor-Array fungiert als intelligenter Filter bei der `getMeasurementDAt()`-Methode:
+
+```csharp
+// Szenario: 3 Substrate + 2 Pumpen im Q-Array
+var q_array = new sensor_array("Q");
+q_array.addSensor(new Q_sensor("maize"));
+q_array.addSensor(new Q_sensor("manure"));
+q_array.addSensor(new Q_sensor("grass"));
+q_array.addSensor(new Q_sensor("pump_F1_F2"));
+q_array.addSensor(new Q_sensor("pump_F2_F1"));
+
+// Nur Substrate in substrates-Liste
+var substrates = new substrates();
+substrates.addSubstrate(new substrate("maize"));
+substrates.addSubstrate(new substrate("manure"));
+substrates.addSubstrate(new substrate("grass"));
+
+// Filter-Logik:
+// 1. Iteriere über alle Sensoren im Array
+// 2. Prüfe: ist sensor.id_suffix in substrates.ids?
+// 3. Wenn ja: Addiere zur Summe
+// 4. Wenn nein (Pumpen): Ignoriere
+
+double Q_substrates_only = q_array.getMeasurementDAt(
+    substrates,  // Filter
+    "sum",
+    5.0,
+    0,
+    false
+);
+// Ergebnis: Summe nur von maize, manure, grass
+```
+
+### Dynamische Array-Verwaltung
+
+```csharp
+using biogas;
+using science;
+
+public class DynamicArrayManager
+{
+    private sensors mySensors;
+    private Dictionary<string, sensor_array> arrays;
+    
+    public DynamicArrayManager(sensors mySensors)
+    {
+        this.mySensors = mySensors;
+        this.arrays = new Dictionary<string, sensor_array>();
+    }
+    
+    /// <summary>
+    /// Erstellt dynamisch Sensor-Arrays basierend auf Substrat-Liste
+    /// </summary>
+    public void CreateSubstrateArrays(substrates mySubstrates)
+    {
+        // Q-Array
+        var q_array = new sensor_array("Q");
+        foreach (substrate s in mySubstrates)
+        {
+            q_array.addSensor(new Q_sensor(s.id));
+        }
+        arrays["Q"] = q_array;
+        mySensors.addSensorArray(q_array);
+        
+        // Substratparameter-Array
+        var params_array = new sensor_array("substrateparams");
+        foreach (substrate s in mySubstrates)
+        {
+            params_array.addSensor(new substrateparams_sensor(s.id));
+        }
+        arrays["substrateparams"] = params_array;
+        mySensors.addSensorArray(params_array);
+        
+        Console.WriteLine($"Erstellt: {arrays.Count} Sensor-Arrays " +
+                         $"mit je {mySubstrates.Count} Sensoren");
+    }
+    
+    /// <summary>
+    /// Fügt dynamisch einen Sensor zu einem Array hinzu
+    /// </summary>
+    public void AddSensorToArray(string array_id, sensor mySensor)
+    {
+        if (!arrays.ContainsKey(array_id))
+        {
+            throw new exception($"Array {array_id} existiert nicht");
+        }
+        
+        sensor_array array = arrays[array_id];
+        
+        // Prüfen ob Sensor bereits existiert
+        if (array.exist(mySensor.id))
+        {
+            Console.WriteLine($"Sensor {mySensor.id} bereits im Array {array_id}");
+            return;
+        }
+        
+        array.addSensor(mySensor);
+        Console.WriteLine($"Sensor {mySensor.id} zu Array {array_id} hinzugefügt");
+    }
+    
+    /// <summary>
+    /// Entfernt Sensor aus Array (falls Methode existiert)
+    /// </summary>
+    public void RemoveSensorFromArray(string array_id, string sensor_id)
+    {
+        if (!arrays.ContainsKey(array_id))
+        {
+            throw new exception($"Array {array_id} existiert nicht");
+        }
+        
+        sensor_array array = arrays[array_id];
+        
+        if (!array.exist(sensor_id))
+        {
+            Console.WriteLine($"Sensor {sensor_id} nicht in Array {array_id}");
+            return;
+        }
+        
+        // sensor_array erbt von List<sensor>, daher:
+        sensor toRemove = array.get(sensor_id);
+        array.Remove(toRemove);
+        
+        Console.WriteLine($"Sensor {sensor_id} aus Array {array_id} entfernt");
+    }
+    
+    /// <summary>
+    /// Gibt Statistiken über alle Arrays aus
+    /// </summary>
+    public void PrintStatistics()
+    {
+        Console.WriteLine("\n=== Sensor-Array-Statistiken ===");
+        
+        foreach (var kvp in arrays)
+        {
+            sensor_array array = kvp.Value;
+            
+            Console.WriteLine($"\nArray: {array.id}");
+            Console.WriteLine($"  Anzahl Sensoren: {array.Count}");
+            
+            if (array.Count > 0)
+            {
+                string[] ids = array.getIDs();
+                Console.WriteLine($"  Sensoren:");
+                foreach (string id in ids)
+                {
+                    Console.WriteLine($"    - {id}");
+                }
+            }
+        }
+    }
+}
+
+// Verwendung
+var manager = new DynamicArrayManager(mySensors);
+manager.CreateSubstrateArrays(substrates);
+
+// Dynamisch Sensor hinzufügen
+manager.AddSensorToArray("Q", new Q_sensor("silage"));
+
+// Statistiken ausgeben
+manager.PrintStatistics();
+```
+
+### Zeitreihen-Analyse mit Arrays
+
+```csharp
+using biogas;
+using science;
+using System.Linq;
+
+/// <summary>
+/// Analysiert Zeitreihen eines Sensor-Arrays
+/// </summary>
+public class ArrayTimeSeriesAnalyzer
+{
+    private sensor_array array;
+    private substrates substrates;
+    
+    public ArrayTimeSeriesAnalyzer(sensor_array array, substrates substrates)
+    {
+        this.array = array;
+        this.substrates = substrates;
+    }
+    
+    /// <summary>
+    /// Berechnet Statistiken über Zeit
+    /// </summary>
+    public void CalculateStatistics(double t_start, double t_end, double dt)
+    {
+        int n_points = (int)((t_end - t_start) / dt) + 1;
+        
+        double[] time = new double[n_points];
+        double[] sum_values = new double[n_points];
+        double[] mean_values = new double[n_points];
+        
+        for (int i = 0; i < n_points; i++)
+        {
+            double t = t_start + i * dt;
+            time[i] = t;
+            
+            sum_values[i] = array.getMeasurementDAt(
+                substrates, "sum", t, 0, false
+            );
+            
+            mean_values[i] = array.getMeasurementDAt(
+                substrates, "mean", t, 0, false
+            );
+        }
+        
+        // Statistiken
+        Console.WriteLine($"\n=== Zeitreihen-Statistiken ({array.id}) ===");
+        Console.WriteLine($"Zeitraum: {t_start} - {t_end} Tage");
+        Console.WriteLine($"Anzahl Messpunkte: {n_points}");
+        
+        Console.WriteLine("\nSumme:");
+        Console.WriteLine($"  Min: {sum_values.Min():F2}");
+        Console.WriteLine($"  Max: {sum_values.Max():F2}");
+        Console.WriteLine($"  Mean: {sum_values.Average():F2}");
+        Console.WriteLine($"  StdDev: {CalculateStdDev(sum_values):F2}");
+        
+        Console.WriteLine("\nMittelwert:");
+        Console.WriteLine($"  Min: {mean_values.Min():F2}");
+        Console.WriteLine($"  Max: {mean_values.Max():F2}");
+        Console.WriteLine($"  Mean: {mean_values.Average():F2}");
+        Console.WriteLine($"  StdDev: {CalculateStdDev(mean_values):F2}");
+    }
+    
+    /// <summary>
+    /// Findet Zeitpunkte mit extremen Werten
+    /// </summary>
+    public void FindExtremes(double t_start, double t_end, double dt, 
+                            double threshold_sum, double threshold_mean)
+    {
+        Console.WriteLine($"\n=== Extreme Werte ({array.id}) ===");
+        Console.WriteLine($"Schwellwert Summe: {threshold_sum}");
+        Console.WriteLine($"Schwellwert Mittelwert: {threshold_mean}");
+        
+        for (double t = t_start; t <= t_end; t += dt)
+        {
+            double sum = array.getMeasurementDAt(
+                substrates, "sum", t, 0, false
+            );
+            
+            double mean = array.getMeasurementDAt(
+                substrates, "mean", t, 0, false
+            );
+            
+            if (sum > threshold_sum || mean > threshold_mean)
+            {
+                Console.WriteLine($"\nt = {t:F1} Tage:");
+                Console.WriteLine($"  Summe: {sum:F2}");
+                Console.WriteLine($"  Mittelwert: {mean:F2}");
+                
+                // Einzelwerte ausgeben
+                string[] ids = array.getIDs();
+                foreach (string id_suffix in ids)
+                {
+                    if (substrates.ids.Contains(id_suffix))
+                    {
+                        sensor s = array.get($"{array.id}_{id_suffix}");
+                        double val = s.getMeasurementDAt(0, t, false);
+                        Console.WriteLine($"    {id_suffix}: {val:F2}");
+                    }
+                }
+            }
+        }
+    }
+    
+    /// <summary>
+    /// Vergleicht einzelne Sensoren im Array
+    /// </summary>
+    public void CompareSensors(double t)
+    {
+        Console.WriteLine($"\n=== Sensor-Vergleich (t = {t} d) ===");
+        
+        string[] ids = array.getIDs();
+        var values = new Dictionary<string, double>();
+        
+        // Werte sammeln
+        foreach (string id_suffix in ids)
+        {
+            if (substrates.ids.Contains(id_suffix))
+            {
+                sensor s = array.get($"{array.id}_{id_suffix}");
+                double val = s.getMeasurementDAt(0, t, false);
+                values[id_suffix] = val;
+            }
+        }
+        
+        if (values.Count == 0)
+        {
+            Console.WriteLine("Keine Werte gefunden");
+            return;
+        }
+        
+        // Sortieren
+        var sorted = values.OrderByDescending(kvp => kvp.Value);
+        
+        Console.WriteLine("\nRanking:");
+        int rank = 1;
+        foreach (var kvp in sorted)
+        {
+            double percentage = kvp.Value / values.Values.Sum() * 100;
+            Console.WriteLine($"{rank}. {kvp.Key}: {kvp.Value:F2} " +
+                             $"({percentage:F1}%)");
+            rank++;
+        }
+        
+        Console.WriteLine($"\nGesamt: {values.Values.Sum():F2}");
+        Console.WriteLine($"Durchschnitt: {values.Values.Average():F2}");
+    }
+    
+    private double CalculateStdDev(double[] values)
+    {
+        double mean = values.Average();
+        double variance = values.Select(v => Math.Pow(v - mean, 2)).Average();
+        return Math.Sqrt(variance);
+    }
+}
+
+// Verwendung
+var analyzer = new ArrayTimeSeriesAnalyzer(q_array, substrates);
+
+// Statistiken berechnen
+analyzer.CalculateStatistics(0.0, 30.0, 0.5);
+
+// Extreme finden
+analyzer.FindExtremes(0.0, 30.0, 0.5, 
+                      threshold_sum: 200.0,   // m³/d
+                      threshold_mean: 80.0);  // m³/d
+
+// Sensoren vergleichen
+analyzer.CompareSensors(10.0);
+```
+
+**Ausgabe:**
+```
+=== Zeitreihen-Statistiken (Q) ===
+Zeitraum: 0 - 30 Tage
+Anzahl Messpunkte: 61
+
+Summe:
+  Min: 145.23
+  Max: 182.56
+  Mean: 163.45
+  StdDev: 8.32
+
+Mittelwert:
+  Min: 48.41
+  Max: 60.85
+  Mean: 54.48
+  StdDev: 2.77
+
+=== Extreme Werte (Q) ===
+Schwellwert Summe: 200.0
+Schwellwert Mittelwert: 80.0
+(keine Werte über Schwellwert)
+
+=== Sensor-Vergleich (t = 10 d) ===
+
+Ranking:
+1. maize: 98.50 (60.2%)
+2. manure: 45.30 (27.7%)
+3. grass: 19.80 (12.1%)
+
+Gesamt: 163.60
+Durchschnitt: 54.53
+```
+
+### Multi-Array-Koordination
+
+```csharp
+using biogas;
+using science;
+
+/// <summary>
+/// Koordiniert mehrere Sensor-Arrays
+/// </summary>
+public class MultiArrayCoordinator
+{
+    private sensors mySensors;
+    private substrates mySubstrates;
+    
+    public MultiArrayCoordinator(sensors mySensors, substrates mySubstrates)
+    {
+        this.mySensors = mySensors;
+        this.mySubstrates = mySubstrates;
+    }
+    
+    /// <summary>
+    /// Misst alle Arrays synchron
+    /// </summary>
+    public void MeasureAllArrays(double t, double dt)
+    {
+        // Q-Array
+        sensor_array q_array = mySensors.getArray("Q");
+        foreach (sensor s in q_array)
+        {
+            if (mySubstrates.ids.Contains(s.id_suffix))
+            {
+                double[] stream = GetStreamForSubstrate(s.id_suffix);
+                s.measure(t, dt, stream);
+            }
+        }
+        
+        // Substratparameter-Array
+        sensor_array params_array = mySensors.getArray("substrateparams");
+        foreach (sensor s in params_array)
+        {
+            if (mySubstrates.ids.Contains(s.id_suffix))
+            {
+                double[] analysis = GetLabAnalysisForSubstrate(s.id_suffix);
+                s.measure(t, dt, analysis);
+            }
+        }
+        
+        Console.WriteLine($"Arrays gemessen zu t = {t:F1} d");
+    }
+    
+    /// <summary>
+    /// Berechnet korrelierte Werte zwischen Arrays
+    /// </summary>
+    public void CalculateCorrelations(double t)
+    {
+        sensor_array q_array = mySensors.getArray("Q");
+        sensor_array params_array = mySensors.getArray("substrateparams");
+        
+        Console.WriteLine($"\n=== Korrelationen (t = {t} d) ===");
+        
+        foreach (substrate s in mySubstrates)
+        {
+            string id = s.id;
+            
+            // Q-Wert
+            sensor q_sensor = q_array.get($"Q_{id}");
+            double Q = q_sensor.getMeasurementDAt(0, t, false);
+            
+            // TS-Wert
+            sensor params_sensor = params_array.get($"substrateparams_{id}");
+            physValue ts = params_sensor.getMeasurementAt("TS_%FM", t);
+            
+            // Masse berechnen
+            double mass = Q * ts.Value / 100 * 1000;  // kg TS/d (angenommen Dichte ≈ 1000 kg/m³)
+            
+            Console.WriteLine($"\n{id}:");
+            Console.WriteLine($"  Q: {Q:F2} m³/d");
+            Console.WriteLine($"  TS: {ts.Value:F2} % FM");
+            Console.WriteLine($"  Masse TS: {mass:F1} kg TS/d");
+        }
+    }
+    
+    /// <summary>
+    /// Validiert Konsistenz zwischen Arrays
+    /// </summary>
+    public bool ValidateConsistency(double t)
+    {
+        bool consistent = true;
+        
+        sensor_array q_array = mySensors.getArray("Q");
+        sensor_array params_array = mySensors.getArray("substrateparams");
+        
+        Console.WriteLine($"\n=== Konsistenz-Check (t = {t} d) ===");
+        
+        // Prüfe: Jedes Substrat hat Q-Sensor und Params-Sensor
+        foreach (substrate s in mySubstrates)
+        {
+            string id = s.id;
+            
+            bool has_q = q_array.exist($"Q_{id}");
+            bool has_params = params_array.exist($"substrateparams_{id}");
+            
+            if (!has_q || !has_params)
+            {
+                Console.WriteLine($"FEHLER: Substrat {id} unvollständig");
+                Console.WriteLine($"  Q-Sensor: {(has_q ? "OK" : "FEHLT")}");
+                Console.WriteLine($"  Params-Sensor: {(has_params ? "OK" : "FEHLT")}");
+                consistent = false;
+            }
+            
+            // Prüfe: Beide Sensoren haben Daten
+            if (has_q && has_params)
+            {
+                sensor q_sensor = q_array.get($"Q_{id}");
+                sensor params_sensor = params_array.get($"substrateparams_{id}");
+                
+                bool q_empty = q_sensor.isEmpty();
+                bool params_empty = params_sensor.isEmpty();
+                
+                if (q_empty || params_empty)
+                {
+                    Console.WriteLine($"WARNUNG: Substrat {id} hat keine Daten");
+                    Console.WriteLine($"  Q-Daten: {(!q_empty ? "OK" : "LEER")}");
+                    Console.WriteLine($"  Params-Daten: {(!params_empty ? "OK" : "LEER")}");
+                    consistent = false;
+                }
+            }
+        }
+        
+        if (consistent)
+        {
+            Console.WriteLine("Alle Arrays konsistent");
+        }
+        
+        return consistent;
+    }
+    
+    // Helper-Methoden (vereinfacht)
+    private double[] GetStreamForSubstrate(string substrate_id)
+    {
+        // In Realität: ADM-Stream von Substratzufuhr
+        double[] stream = new double[34];
+        stream[0] = 100.0;  // Q
+        return stream;
+    }
+    
+    private double[] GetLabAnalysisForSubstrate(string substrate_id)
+    {
+        // In Realität: Laboranalyse-Daten
+        return new double[10] { 25.0, 22.5, 4.5, 0.5, 2.0, 0.8, 2.5, 8.0, 20.0, 300.0 };
+    }
+}
+
+// Verwendung
+var coordinator = new MultiArrayCoordinator(mySensors, substrates);
+
+// Synchrone Messung
+coordinator.MeasureAllArrays(10.0, 0.5);
+
+// Korrelationen
+coordinator.CalculateCorrelations(10.0);
+
+// Validierung
+bool valid = coordinator.ValidateConsistency(10.0);
+if (!valid)
+{
+    Console.WriteLine("\nBitte Sensor-Konfiguration überprüfen!");
+}
+```
+
+---
+
+## Integration mit anderen Komponenten
+
+### Integration mit sensors-Klasse
+
+```csharp
+using biogas;
+using science;
+
+// Sensor-Arrays in sensors-Objekt integrieren
+var mySensors = new sensors();
+var substrates = new substrates("substrates.xml");
+
+// Q-Array erstellen und hinzufügen
+var q_array = new sensor_array("Q");
+foreach (substrate s in substrates)
+{
+    q_array.addSensor(new Q_sensor(s.id));
+}
+mySensors.addSensorArray(q_array);
+
+// Zugriff über sensors-Klasse
+sensor_array retrieved_array = mySensors.getArray("Q");
+string[] q_ids = mySensors.getIDsOfArray("Q");
+
+// Messung über sensors-Klasse
+double[] stream = /* ... */;
+mySensors.measure(5.0, "Q_maize", stream);
+
+// Aggregierte Werte über sensors-Klasse
+double Q_total = mySensors.getArrayMeasurementDAt(
+    substrates,
+    "Q",
+    "sum",
+    5.0,
+    0,
+    false
+);
+
+Console.WriteLine($"Gesamt-Volumenstrom: {Q_total} m³/d");
+```
+
+### Integration mit plant-Klasse
+
+```csharp
+using biogas;
+using science;
+
+var plant = new plant("plant.xml");
+var substrates = new substrates("substrates.xml");
+var mySensors = new sensors();
+
+// Fermenter-spezifische Sensor-Arrays
+for (int i = 1; i <= plant.getNumDigesters(); i++)
+{
+    string digester_id = plant.getDigesterID(i);
+    
+    // pH-Array für alle In/Out
+    var ph_array = new sensor_array($"pH_{digester_id}");
+    ph_array.addSensor(new pH_sensor($"{digester_id}_2"));
+    ph_array.addSensor(new pH_sensor($"{digester_id}_3"));
+    mySensors.addSensorArray(ph_array);
+    
+    // VFA-Array
+    var vfa_array = new sensor_array($"VFA_{digester_id}");
+    vfa_array.addSensor(new VFA_sensor($"{digester_id}_2"));
+    vfa_array.addSensor(new VFA_sensor($"{digester_id}_3"));
+    mySensors.addSensorArray(vfa_array);
+}
+
+// Nutzung
+double[] stream_in = /* ... */;
+double[] stream_out = /* ... */;
+
+sensor_array ph_f1 = mySensors.getArray("pH_F1");
+sensor ph_in = ph_f1.get("pH_F1_2");
+sensor ph_out = ph_f1.get("pH_F1_3");
+
+ph_in.measure(5.0, 0.5, stream_in);
+ph_out.measure(5.0, 0.5, stream_out);
+
+// Vergleich Eingang/Ausgang
+double pH_in_val = ph_in.getCurrentMeasurementD(0);
+double pH_out_val = ph_out.getCurrentMeasurementD(0);
+double pH_diff = pH_out_val - pH_in_val;
+
+Console.WriteLine($"Fermenter F1 (Tag 5):");
+Console.WriteLine($"  pH Eingang: {pH_in_val:F2}");
+Console.WriteLine($"  pH Ausgang: {pH_out_val:F2}");
+Console.WriteLine($"  Differenz: {pH_diff:+0.00;-0.00}");
+```
+
+---
+
+## Debugging und Troubleshooting
+
+### Debug-Helper-Klasse
+
+```csharp
+using biogas;
+using science;
+
+/// <summary>
+/// Hilfsklasse zum Debuggen von Sensor-Arrays
+/// </summary>
+public static class SensorArrayDebugger
+{
+    /// <summary>
+    /// Gibt detaillierte Array-Informationen aus
+    /// </summary>
+    public static void InspectArray(sensor_array array)
+    {
+        Console.WriteLine($"\n=== Array-Inspektion: {array.id} ===");
+        Console.WriteLine($"Anzahl Sensoren: {array.Count}");
+        
+        if (array.Count == 0)
+        {
+            Console.WriteLine("Array ist leer");
+            return;
+        }
+        
+        Console.WriteLine("\nSensoren:");
+        int i = 0;
+        foreach (sensor s in array)
+        {
+            Console.WriteLine($"\n[{i}] {s.id}");
+            Console.WriteLine($"    Spec: {s.spec}");
+            Console.WriteLine($"    ID-Suffix: {s.id_suffix}");
+            Console.WriteLine($"    Dimension: {s.dimension}");
+            Console.WriteLine($"    Typ: {s.type}");
+            Console.WriteLine($"    Leer: {s.isEmpty()}");
+            
+            if (!s.isEmpty())
+            {
+                double t = s.getCurrentTime();
+                Console.WriteLine($"    Letzte Messung: t = {t:F1} d");
+                
+                try
+                {
+                    physValue val = s.getCurrentMeasurement(0);
+                    Console.WriteLine($"    Aktueller Wert: {val.Value:F2} {val.Unit}");
+                }
+                catch
+                {
+                    Console.WriteLine($"    Fehler beim Wert-Abruf");
+                }
+            }
+            
+            i++;
+        }
+    }
+    
+    /// <summary>
+    /// Prüft getMeasurementDAt auf Fehler
+    /// </summary>
+    public static void TestGetMeasurementDAt(sensor_array array, 
+                                             substrates mySubstrates,
+                                             double t)
+    {
+        Console.WriteLine($"\n=== Test getMeasurementDAt ===");
+        Console.WriteLine($"Array: {array.id}");
+        Console.WriteLine($"Zeit: {t} d");
+        Console.WriteLine($"Substrat-IDs: {string.Join(", ", mySubstrates.ids)}");
+        
+        // Welche Sensoren werden gefunden?
+        Console.WriteLine("\nGefilterte Sensoren:");
+        int count = 0;
+        foreach (sensor s in array)
+        {
+            bool included = mySubstrates.ids.Contains(s.id_suffix);
+            Console.WriteLine($"  {s.id_suffix}: {(included ? "✓" : "✗")}");
+            if (included) count++;
+        }
+        Console.WriteLine($"Gesamt: {count} Sensoren");
+        
+        // Summe berechnen
+        try
+        {
+            double sum = array.getMeasurementDAt(
+                mySubstrates, "sum", t, 0, false
+            );
+            Console.WriteLine($"\nSumme: {sum:F2}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"\nFEHLER bei Summe: {ex.Message}");
+        }
+        
+        // Mittelwert berechnen
+        try
+        {
+            double mean = array.getMeasurementDAt(
+                mySubstrates, "mean", t, 0, false
+            );
+            Console.WriteLine($"Mittelwert: {mean:F2}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"FEHLER bei Mittelwert: {ex.Message}");
+        }
+    }
+    
+    /// <summary>
+    /// Prüft Konsistenz der Sensor-IDs
+    /// </summary>
+    public static bool CheckIDConsistency(sensor_array array)
+    {
+        Console.WriteLine($"\n=== ID-Konsistenz-Check: {array.id} ===");
+        
+        bool consistent = true;
+        
+        // Prüfe: id = spec + "_" + id_suffix
+        foreach (sensor s in array)
+        {
+            string expected_id = $"{s.spec}_{s.id_suffix}";
+            
+            if (s.id != expected_id)
+            {
+                Console.WriteLine($"FEHLER: ID-Inkonsistenz");
+                Console.WriteLine($"  Sensor-ID: {s.id}");
+                Console.WriteLine($"  Erwartet: {expected_id}");
+                Console.WriteLine($"  Spec: {s.spec}");
+                Console.WriteLine($"  Suffix: {s.id_suffix}");
+                consistent = false;
+            }
+        }
+        
+        // Prüfe: Alle haben gleichen spec
