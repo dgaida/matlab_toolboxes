@@ -872,3 +872,825 @@ Console.WriteLine($"Löslicher COD: {ss[0].Value:F1} kgCOD/m³");
 Console.WriteLine($"Partikulärer COD: {vs[0].Value:F1} kgCOD/m³");
 Console.WriteLine($"Gesamt-COD: {(ss[0].Value + vs[0].Value):F1} kgCOD/m³");
 ```
+
+---
+
+### Q_sensor
+
+Misst Volumenströme.
+
+**Spezifikation:** `"Q"`
+
+**Dimension:** 1
+
+**Typ:** 0
+
+**Konstruktor:**
+```csharp
+public Q_sensor(string id_suffix)
+```
+
+**Parameter:**
+- `id_suffix` (string): ID + `"_2"` (Eingang) oder `"_3"` (Ausgang)
+
+**doMeasurement:**
+```csharp
+protected override physValue[] doMeasurement(double[] x, params double[] par)
+```
+
+**Eingabe:**
+- `x` (double[]): ADM-Stream-Vektor (dimension: dim_stream)
+
+**Ausgabe:**
+- `physValue[1]`: Volumenstrom [m³/d]
+
+**Berechnung:**
+```csharp
+Q = ADMstate.calcQOfADMstate(x)
+```
+
+**Beispiel:**
+```csharp
+var sensor = new Q_sensor("F1_3");
+double[] stream = /* ADM-Stream */;
+physValue[] q = sensor.measure(5.0, 0.5, stream);
+Console.WriteLine($"Volumenstrom: {q[0].Value:F1} m³/d");
+```
+
+---
+
+### HRT_sensor
+
+Misst die hydraulische Verweilzeit (Hydraulic Retention Time).
+
+**Spezifikation:** `"HRT"`
+
+**Dimension:** 1
+
+**Typ:** 1 (benötigt Parameter)
+
+**Konstruktor:**
+```csharp
+public HRT_sensor(string id_suffix)
+```
+
+**Parameter:**
+- `id_suffix` (string): Fermenter-ID
+
+**doMeasurement:**
+```csharp
+protected override physValue[] doMeasurement(double[] x, params double[] par)
+```
+
+**Eingabe:**
+- `x` (double[]): ADM-Zustandsvektor
+- `par[0]` (double): Flüssigvolumen Vliq [m³]
+
+**Ausgabe:**
+- `physValue[1]`: HRT [d]
+
+**Ausnahmen:**
+- `exception`: Wenn `par.Length != 1`
+
+**Berechnung:**
+```csharp
+HRT = ADMstate.calcHRTOfADMstate(x, Vliq)
+```
+
+**Beispiel:**
+```csharp
+var sensor = new HRT_sensor("F1");
+double[] state = /* ADM-Zustand */;
+double Vliq = 2500.0;  // m³
+
+physValue[] hrt = sensor.measure(5.0, 0.5, state, Vliq);
+Console.WriteLine($"HRT: {hrt[0].Value:F1} Tage");
+
+// Typische Werte: 20-60 Tage
+if (hrt[0].Value < 20.0)
+    Console.WriteLine("WARNUNG: HRT zu kurz!");
+```
+
+---
+
+### OLR_sensor
+
+Misst die organische Raumbelastung (Organic Loading Rate).
+
+**Spezifikation:** `"OLR"`
+
+**Dimension:** 1
+
+**Typ:** 7 (benötigt plant, substrates, sensors, Q)
+
+**Konstruktor:**
+```csharp
+public OLR_sensor(string id_suffix)
+```
+
+**Parameter:**
+- `id_suffix` (string): Fermenter-ID
+
+**doMeasurement:**
+```csharp
+protected override physValue[] doMeasurement(double[] x, plant myPlant,
+                                             substrates mySubstrates, sensors mySensors,
+                                             double[] Q, params double[] par)
+```
+
+**Eingabe:**
+- `x` (double[]): ADM-Zustandsvektor
+- `myPlant` (plant): Anlagen-Objekt
+- `mySubstrates` (substrates): Substrat-Liste
+- `mySensors` (sensors): Sensor-Sammlung
+- `Q` (double[]): Volumenströme
+  - `Q[0..n_substrate-1]`: Substrat-Ströme [m³/d]
+  - `Q[n_substrate..]`: Fermenter-Rezirkulation [m³/d]
+
+**Ausgabe:**
+- `physValue[1]`: OLR [kgCOD/(m³·d)]
+
+**Ausnahmen:**
+- `exception`: Wenn `Q.Length < n_substrate`
+
+**Berechnung:**
+```csharp
+digester myDigester = myPlant.getDigesterByID(id_suffix);
+OLR = myDigester.calcOLR(x, substrates_or_sludge, Q_substrates, Qsum)
+```
+
+**Spezialfall:** Wenn kein Substrat zugeführt wird:
+- Erstellt Sludge-Objekte aus TS/VS der Fermenter
+- Nutzt gemessene TS/VS-Werte oder Defaults
+
+**Beispiel:**
+```csharp
+var sensor = new OLR_sensor("F1");
+
+// Über sensors-Klasse messen (Typ 7)
+double[] x = /* ADM-Zustand */;
+double[] Q = {100.0, 50.0, 0.0, 0.0};  // 2 Substrate, 2 Fermenter
+
+mySensors.measure_type7(5.0, x, plant, substrates, mySensors,
+                        substrate_network, plant_network, "F1");
+
+double olr = mySensors.getCurrentMeasurementD("OLR_F1");
+Console.WriteLine($"OLR: {olr:F2} kgCOD/(m³·d)");
+
+// Typische Werte: 2-6 kg/(m³·d)
+```
+
+**Hinweis:**
+- **Copyright:** GPL v3+
+- **TODO:** Größtenteils identisch mit TS_sensor, könnte zusammengelegt werden
+
+---
+
+### density_sensor
+
+Misst die Dichte des Substrat-Feeds.
+
+**Spezifikation:** `"density"`
+
+**Dimension:** 1
+
+**Typ:** 7
+
+**Konstruktor:**
+```csharp
+public density_sensor(string id_suffix)
+```
+
+**Parameter:**
+- `id_suffix` (string): Fermenter-ID
+
+**doMeasurement:**
+```csharp
+protected override physValue[] doMeasurement(double[] x, plant myPlant,
+                                             substrates mySubstrates, sensors mySensors,
+                                             double[] Q, params double[] par)
+```
+
+**Eingabe:**
+- Wie OLR_sensor (Typ 7)
+
+**Ausgabe:**
+- `physValue[1]`: Dichte [kg/m³]
+
+**Berechnung:**
+```csharp
+// Substrat-Dichte (gewichteter Mittelwert)
+substrates.get_weighted_sum_of(Q_substrates, "rho", out rho_substrate);
+rho_substrate = rho_substrate.convertUnit("kg/d");
+
+// Sludge-Dichte (Annahme: 1000 kg/m³)
+rho_sludge = 1000 kg/m³
+
+// Gesamt
+density = (rho_substrate + rho_sludge * Q_sludge) / Q_total
+```
+
+**Beispiel:**
+```csharp
+var sensor = new density_sensor("F1");
+
+// Messung über sensors-Klasse
+mySensors.measure_type7(5.0, x, plant, substrates, mySensors,
+                        substrate_network, plant_network, "F1");
+
+double rho = mySensors.getCurrentMeasurementD("density_F1");
+Console.WriteLine($"Dichte: {rho:F1} kg/m³");
+```
+
+**Hinweise:**
+- **TODO:** mySensors wird hier eigentlich nicht benötigt
+- Annahme: Sludge-Dichte = 1000 kg/m³
+- Misst nur Eingangs-Dichte (Feed), nicht Dichte im Fermenter
+
+---
+
+### biomassMeth_sensor, biomassAciAce_sensor
+
+Messen Biomasse-Konzentrationen verschiedener Mikroorganismen-Gruppen.
+
+**Spezifikationen:** `"biomassMeth"`, `"biomassAciAce"`
+
+**Dimension:** 1
+
+**Typ:** 0
+
+**Konstruktoren:**
+```csharp
+public biomassMeth_sensor(string id_suffix)
+public biomassAciAce_sensor(string id_suffix)
+```
+
+**Parameter:**
+- `id_suffix` (string): Fermenter-ID + `"_2"` oder `"_3"`
+
+**doMeasurement:**
+```csharp
+protected override physValue[] doMeasurement(double[] x, params double[] par)
+```
+
+**Eingabe:**
+- `x` (double[]): ADM-Zustandsvektor
+
+**Ausgabe:**
+- `physValue[1]`: Biomasse [kgCOD/m³]
+
+**Berechnungen:**
+```csharp
+// biomassMeth: Methanogene
+// Xac (Acetat-abbauende) + Xh2 (H2-abbauende)
+biomass_meth = ADMstate.calcMethBiomassOfADMstate(x)
+
+// biomassAciAce: Acidogene + Acetogene
+// Xsu (Zucker) + Xaa (Aminosäuren) + Xfa (LCFA) + Xc4 (Valerat/Butyrat) + Xpro (Propionat)
+biomass_aci_ace = ADMstate.calcAciAceBiomassOfADMstate(x)
+```
+
+**Beispiel:**
+```csharp
+var meth_sensor = new biomassMeth_sensor("F1_3");
+var aci_ace_sensor = new biomassAciAce_sensor("F1_3");
+
+double[] state = /* ADM-Zustand */;
+
+physValue[] X_meth = meth_sensor.measure(5.0, 0.5, state);
+physValue[] X_aci_ace = aci_ace_sensor.measure(5.0, 0.5, state);
+
+Console.WriteLine($"Methanogene: {X_meth[0].Value:F2} kgCOD/m³");
+Console.WriteLine($"Acidogene+Acetogene: {X_aci_ace[0].Value:F2} kgCOD/m³");
+
+// Verhältnis
+double ratio = X_aci_ace[0].Value / X_meth[0].Value;
+Console.WriteLine($"Verhältnis Aci+Ace/Meth: {ratio:F2}");
+```
+
+---
+
+### inhibition_sensor
+
+Misst Inhibierungsterme des ADM1-Modells.
+
+**Spezifikation:** `"inhibition"`
+
+**Dimension:** 8
+
+**Typ:** 91 (Custom - aus internen Variablen)
+
+**Konstruktor:**
+```csharp
+public inhibition_sensor(string id_suffix)
+```
+
+**Parameter:**
+- `id_suffix` (string): Fermenter-ID
+
+**doMeasurement:**
+```csharp
+protected override physValue[] doMeasurement(double[] intvars, params double[] par)
+```
+
+**Eingabe:**
+- `intvars` (double[]): ADM1-interne Variablen (ohne Biogas-Vektor)
+
+**Ausgabe:**
+- `physValue[8]`:
+  - `[0]`: IpH_a (pH-Inhibierung Acidogene) [100 %]
+  - `[1]`: IpH_h2 (pH-Inhibierung Hydrogenotrophe) [100 %]
+  - `[2]`: IpH_ac (pH-Inhibierung Acetotrophe) [100 %]
+  - `[3]`: IpH (Gesamt-pH-Inhibierung) [100 %]
+  - `[4]`: Iin (Stickstoff-Inhibierung) [100 %]
+  - `[5]`: I_NH3 (Ammoniak-Inhibierung) [100 %]
+  - `[6]`: Iin * I_NH3 (Kombinierte N-Inhibierung) [100 %]
+  - `[7]`: I_H2_c4 (Wasserstoff-Inhibierung C4) [100 %]
+
+**Berechnung:**
+```csharp
+// pH-Inhibierung
+IpH_a = intvars[27]
+IpH_h2 = intvars[29]
+IpH_ac = intvars[31]
+IpH = intvars[27] * intvars[29] * intvars[31]
+
+// Stickstoff-Inhibierung
+Iin = intvars[23]
+I_NH3 = intvars[24]
+
+// Wasserstoff-Inhibierung
+I_H2_c4 = intvars[25]
+```
+
+**Beispiel:**
+```csharp
+var sensor = new inhibition_sensor("F1");
+
+// Über sensors-Klasse messen (benötigt interne Variablen)
+double[] intvars = /* ADM-interne Variablen */;
+physValue[] inhib = sensor.measure(5.0, 0.5, intvars);
+
+Console.WriteLine("Inhibierungen:");
+Console.WriteLine($"  pH (gesamt): {inhib[3].Value:F3}");
+Console.WriteLine($"  Stickstoff: {inhib[4].Value:F3}");
+Console.WriteLine($"  Ammoniak: {inhib[5].Value:F3}");
+Console.WriteLine($"  Wasserstoff: {inhib[7].Value:F3}");
+
+// Warnung bei starker Inhibierung
+if (inhib[3].Value < 0.5)  // < 50% Aktivität
+    Console.WriteLine("WARNUNG: Starke pH-Inhibierung!");
+if (inhib[6].Value < 0.5)
+    Console.WriteLine("WARNUNG: Starke Stickstoff-Inhibierung!");
+```
+
+**Hinweise:**
+- **NICHT FERTIG** - hängt von ADM-internen Variablen ab
+- Werte: 0.0 (vollständig inhibiert) bis 1.0 (keine Inhibierung)
+- Indizes beziehen sich auf ADM1-interne Variablen
+
+---
+
+### aceto_hydro_sensor
+
+Misst das Verhältnis von acetoclastischer zu hydrogenotropher Methanogenese.
+
+**Spezifikation:** `"aceto_hydro"`
+
+**Dimension:** 2
+
+**Typ:** 911 (Custom - aus internen Variablen)
+
+**Konstruktor:**
+```csharp
+public aceto_hydro_sensor(string id_suffix)
+```
+
+**Parameter:**
+- `id_suffix` (string): Fermenter-ID
+
+**doMeasurement:**
+```csharp
+protected override physValue[] doMeasurement(double[] intvars, params double[] par)
+```
+
+**Eingabe:**
+- `intvars` (double[]): ADM1-interne Variablen
+- `par[0]` (double): Yac (Yield-Koeffizient Acetat)
+- `par[1]` (double): Yh2 (Yield-Koeffizient Wasserstoff)
+
+**Ausgabe:**
+- `physValue[2]`:
+  - `[0]`: Acetoclastische Methanogenese [100 %]
+  - `[1]`: Hydrogenotrophe Methanogenese [100 %]
+
+**Berechnung:**
+```csharp
+// Uptake-Raten aus internen Variablen
+p_ac = intvars[48]  // Acetat-Aufnahme
+p_h2 = intvars[49]  // Wasserstoff-Aufnahme
+
+// CH4-Produktion
+ch4_prod_ac = p_ac * (1 - Yac)
+ch4_prod_h2 = p_h2 * (1 - Yh2)
+
+// Anteile in %
+aceto_ratio = ch4_prod_ac / (ch4_prod_ac + ch4_prod_h2) * 100
+hydro_ratio = ch4_prod_h2 / (ch4_prod_ac + ch4_prod_h2) * 100
+```
+
+**Beispiel:**
+```csharp
+var sensor = new aceto_hydro_sensor("F1");
+
+double[] intvars = /* ADM-interne Variablen */;
+double Yac = 0.05;  // 5% Yield
+double Yh2 = 0.06;  // 6% Yield
+
+physValue[] ratio = sensor.measure(5.0, 0.5, intvars, Yac, Yh2);
+
+Console.WriteLine("Methanogenese-Wege:");
+Console.WriteLine($"  Acetoclastisch: {ratio[0].Value:F1}%");
+Console.WriteLine($"  Hydrogenotroph: {ratio[1].Value:F1}%");
+
+// Typisch: 70% acetoclastisch, 30% hydrogenotroph
+```
+
+**Hinweise:**
+- **NICHT FERTIG** - hängt von ADM-internen Variablen ab
+- Summe sollte 100% ergeben
+- Wichtig für Prozessverständnis
+
+---
+
+### faecal_sensor
+
+Misst die Fäkalbakterien-Entfernungsrate.
+
+**Spezifikation:** `"faecal"`
+
+**Dimension:** 2
+
+**Typ:** 1 (benötigt Parameter)
+
+**Konstruktor:**
+```csharp
+public faecal_sensor(string id_suffix)
+```
+
+**Parameter:**
+- `id_suffix` (string): Fermenter-ID
+
+**doMeasurement:**
+```csharp
+protected override physValue[] doMeasurement(double[] x, params double[] par)
+```
+
+**Eingabe:**
+- `x` (double[]): ADM-Zustandsvektor (nicht verwendet)
+- `par[0]` (double): HRT [d]
+- `par[1]` (double): Temperatur [°C]
+
+**Ausgabe:**
+- `physValue[2]`:
+  - `[0]`: Intestinale Enterokokken-Entfernung [%]
+  - `[1]`: Fäkalcoliforme-Entfernung [%]
+
+**Ausnahmen:**
+- `exception`: Wenn `par.Length != 2`
+- `exception`: Wenn `HRT == 0`
+
+**Berechnungen:**
+```csharp
+// Intestinale Enterokokken
+eta_IE = 98.29 - 2.2 * (1/HRT)² + 0.031 * T
+
+// Fäkalcoliforme
+eta_FC = 98.29 - 1.0 * (1/HRT)² + 0.031 * T
+```
+
+**Beispiel:**
+```csharp
+var sensor = new faecal_sensor("F1");
+
+double HRT = 30.0;  // Tage
+double T = 38.0;    // °C
+
+physValue[] removal = sensor.measure(5.0, 0.5, new double[1], HRT, T);
+
+Console.WriteLine("Fäkalbakterien-Entfernung:");
+Console.WriteLine($"  Enterokokken: {removal[0].Value:F2}%");
+Console.WriteLine($"  Coliforme: {removal[1].Value:F2}%");
+
+// Hygienisierungsanforderung: >99%
+if (removal[0].Value < 99.0)
+    Console.WriteLine("WARNUNG: Hygienisierung unzureichend!");
+```
+
+**Hinweise:**
+- **TODO:** Zu testen
+- Wichtig für Hygienisierung (z.B. bei Güllevergärung)
+- Abhängig von HRT und Temperatur
+
+---
+
+## 3. Energie-Sensoren
+
+### energyProduction_sensor
+
+Misst die elektrische und thermische Energieproduktion eines BHKWs.
+
+**Spezifikation:** `"energyProduction"`
+
+**Dimension:** 2
+
+**Typ:** 95 (Custom - Typ 5)
+
+**Konstruktor:**
+```csharp
+public energyProduction_sensor(string id_suffix)
+```
+
+**Parameter:**
+- `id_suffix` (string): BHKW-ID
+
+**doMeasurement:**
+```csharp
+protected override physValue[] doMeasurement(double[] x, params double[] par)
+{
+    throw new exception("Not implemented!");
+}
+
+protected override physValue[] doMeasurement(plant myPlant, double[] u,
+                                             string param, params double[] par)
+```
+
+**Eingabe:**
+- `myPlant` (plant): Anlagen-Objekt
+- `u` (double[]): Biogasstrom [m³/d] (H2, CH4, CO2)
+- `param` (string): Nicht verwendet
+- `par` (params double[]): Nicht verwendet
+
+**Ausgabe:**
+- `physValue[2]`:
+  - `[0]`: Elektrische Energie [kWh/d]
+  - `[1]`: Thermische Energie [kWh/d]
+
+**Berechnung:**
+```csharp
+myPlant.burnBiogas(id_suffix, u, out P_el, out P_th)
+```
+
+**Beispiel:**
+```csharp
+var sensor = new energyProduction_sensor("CHP1");
+
+// Biogasstrom zum BHKW
+double[] biogas = {10.0, 500.0, 250.0};  // H2, CH4, CO2 [m³/d]
+
+// Über sensors-Klasse messen (Typ 5)
+mySensors.measure(5.0, "energyProduction_CHP1", plant, biogas, "");
+
+double P_el, P_th;
+mySensors.getCurrentMeasurementD("energyProduction_CHP1", 0, out P_el);
+mySensors.getCurrentMeasurementD("energyProduction_CHP1", 1, out P_th);
+
+Console.WriteLine($"Energieproduktion:");
+Console.WriteLine($"  Elektrisch: {P_el:F1} kWh/d");
+Console.WriteLine($"  Thermisch: {P_th:F1} kWh/d");
+Console.WriteLine($"  Verhältnis: {P_th/P_el:F2}");
+```
+
+**Hinweis:** Wird von `chps.run()` aufgerufen.
+
+---
+
+### energyProdSum_sensor
+
+Misst die gesamte elektrische und thermische Energieproduktion der Anlage.
+
+**Spezifikation:** `"energyProdSum"`
+
+**Dimension:** 2
+
+**Typ:** 543 (Custom)
+
+**Konstruktor:**
+```csharp
+public energyProdSum_sensor()
+```
+
+**Hinweis:** Kein `id_suffix` - gilt für gesamte Anlage.
+
+**doMeasurement:**
+```csharp
+protected override physValue[] doMeasurement(double[] x, params double[] par)
+```
+
+**Eingabe:**
+- `x[0]` (double): Gesamt-Stromproduktion [kWh/d]
+- `x[1]` (double): Gesamt-Wärmeproduktion [kWh/d]
+
+**Ausgabe:**
+- `physValue[2]`:
+  - `[0]`: Pel_sum (Elektrisch gesamt) [kWh/d]
+  - `[1]`: Pth_sum (Thermisch gesamt) [kWh/d]
+
+**Beispiel:**
+```csharp
+var sensor = new energyProdSum_sensor();
+
+// Summe aller BHKWs berechnen
+double P_el_total = 0;
+double P_th_total = 0;
+
+for (int i = 1; i <= plant.getNumCHPs(); i++)
+{
+    string chp_id = plant.getCHPID(i);
+    double P_el, P_th;
+    mySensors.getCurrentMeasurementD($"energyProduction_{chp_id}", 0, out P_el);
+    mySensors.getCurrentMeasurementD($"energyProduction_{chp_id}", 1, out P_th);
+    
+    P_el_total += P_el;
+    P_th_total += P_th;
+}
+
+// Messen
+double[] energy = {P_el_total, P_th_total};
+physValue[] sum = sensor.measure(5.0, 0.5, energy);
+
+Console.WriteLine($"Gesamt-Energieproduktion:");
+Console.WriteLine($"  Strom: {sum[0].Value:F1} kWh/d");
+Console.WriteLine($"  Wärme: {sum[1].Value:F1} kWh/d");
+```
+
+---
+
+### energyProdMicro_sensor
+
+Misst die durch Mikroorganismen produzierte Wärmeenergie.
+
+**Spezifikation:** `"energyProdMicro"`
+
+**Dimension:** 1
+
+**Typ:** 77 (Custom)
+
+**Konstruktor:**
+```csharp
+public energyProdMicro_sensor(string id_suffix)
+```
+
+**Parameter:**
+- `id_suffix` (string): Fermenter-ID
+
+**doMeasurement:**
+```csharp
+protected override physValue[] doMeasurement(double[] p, params double[] par)
+```
+
+**Eingabe:**
+- `p` (double[]): ADM-Reaktionsraten (ρ-Vektor)
+- `par[0]` (double): Vliq (Flüssigvolumen) [m³]
+
+**Ausgabe:**
+- `physValue[1]`: Thermische Energie [kWh/d]
+
+**Ausnahmen:**
+- `exception`: Wenn `par.Length != 1`
+
+**Berechnung:**
+```csharp
+P_prod_micro = ADMstate.calcProdEnergyOfMicroOrganisms(p, Vliq)
+```
+
+**Beispiel:**
+```csharp
+var sensor = new energyProdMicro_sensor("F1");
+
+double[] reaction_rates = /* ADM-Reaktionsraten */;
+double Vliq = 2500.0;  // m³
+
+physValue[] P_micro = sensor.measure(5.0, 0.5, reaction_rates, Vliq);
+
+Console.WriteLine($"Mikrobielle Wärmeproduktion: {P_micro[0].Value:F1} kWh/d");
+
+// Typisch: 1-5% der BHKW-Wärmeleistung
+```
+
+**Hinweise:**
+- **NICHT FERTIG** - hängt eindeutig von ADM1 ab
+- Wichtig für Wärmebilanz des Fermenters
+
+---
+
+### heatConsumption_sensor
+
+Misst den Wärmeverbrauch eines Fermenters.
+
+**Spezifikation:** `"heatConsumption"`
+
+**Dimension:** 4
+
+**Typ:** 7
+
+**Konstruktor:**
+```csharp
+public heatConsumption_sensor(string id_suffix)
+```
+
+**Parameter:**
+- `id_suffix` (string): Fermenter-ID
+
+**doMeasurement:**
+```csharp
+protected override physValue[] doMeasurement(double[] x, plant myPlant,
+                                             substrates mySubstrates,
+                                             sensors mySensors,
+                                             double[] Q, params double[] par)
+```
+
+**Eingabe:**
+- `x` (double[]): ADM-Zustandsvektor
+- `Q` (double[]): Substrat-Volumenströme [m³/d] (nur Substrate, keine Rezirkulation)
+
+**Ausgabe:**
+- `physValue[4]`:
+  - `[0]`: Substrat-Heizung [kWh/d]
+  - `[1]`: Wärmeverlust (Strahlung) [kWh/d]
+  - `[2]`: Mikrobielle Wärmeproduktion [kWh/d]
+  - `[3]`: Rührwerk-Dissipation [kWh/d]
+
+**Berechnung:**
+```csharp
+digester myDigester = myPlant.getDigesterByID(id_suffix);
+
+myDigester.calcThermalEnergyBalance(Q, mySubstrates, myPlant.Tout, mySensors,
+                                    out P_heat_substrates,
+                                    out P_radiation_loss,
+                                    out P_microorganisms,
+                                    out P_stirrer_dissipation)
+```
+
+**Beispiel:**
+```csharp
+var sensor = new heatConsumption_sensor("F1");
+
+// Über sensors-Klasse messen
+double[] Q = {100.0, 50.0};  // Nur Substrate
+mySensors.measure_type7(5.0, x, plant, substrates, mySensors,
+                        substrate_network, plant_network, "F1");
+
+double[] heat = new double[4];
+for (int i = 0; i < 4; i++)
+    mySensors.getCurrentMeasurementD("heatConsumption_F1", i, out heat[i]);
+
+Console.WriteLine("Wärmebilanz:");
+Console.WriteLine($"  Substrat-Heizung: {heat[0]:F1} kWh/d");
+Console.WriteLine($"  Wärmeverlust: {heat[1]:F1} kWh/d");
+Console.WriteLine($"  Mikrobielle Produktion: {heat[2]:F1} kWh/d");
+Console.WriteLine($"  Rührwerk-Dissipation: {heat[3]:F1} kWh/d");
+
+double net = heat[0] - heat[1] + heat[2] + heat[3];
+Console.WriteLine($"  Netto-Wärmebedarf: {net:F1} kWh/d");
+```
+
+**Hinweise:**
+- **TODO:** Wärme durch Bakterien muss noch abgezogen werden - **Erledigt** (ist in `[2]`)
+- Typ 7, aber Q enthält nur Substrate (keine Rezirkulation)
+
+---
+
+### pumpEnergy_sensor
+
+Misst den Energieverbrauch von Pumpen.
+
+**Spezifikation:** `"pumpEnergy"`
+
+**Dimension:** 1
+
+**Typ:** 90 (Custom - Typ 4)
+
+**Konstruktor:**
+```csharp
+public pumpEnergy_sensor(string id_suffix)
+```
+
+**Parameter:**
+- `id_suffix` (string): `unit_start + "_" + unit_destiny` (z.B. `"F1_F2"`)
+
+**doMeasurement:**
+```csharp
+protected override physValue[] doMeasurement(double[] x, params double[] par)
+{
+    throw new exception("Not implemented!");
+}
+
+protected override physValue[] doMeasurement(plant myPlant, double u,
+                                             params double[] par)
+```
+
+**Eingabe:**
+- `myPlant` (plant): Anlagen-Objekt
+- `u` (double): Volumenstrom [m³/d]
+- `par[
