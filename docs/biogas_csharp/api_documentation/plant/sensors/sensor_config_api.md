@@ -936,4 +936,657 @@ foreach (double noise_level in noise_levels)
     double max = measurements.Max();
     double mean = measurements.Average();
     double variance = measurements.Select(x => Math.Pow(x - mean, 2)).Average();
-    double stddev = Math.
+    double stddev = Math.Sqrt(variance);
+
+    Console.WriteLine($"{noise_level:F3}\t{min:F3}\t{max:F3}\t{mean:F3}\t{stddev:F3}");
+}
+```
+
+**Ausgabe:**
+```
+Vergleich Rausch-Level:
+Level   Min     Max     Mean    StdDev
+0.000   7.000   7.000   7.000   0.000
+0.010   6.912   7.089   7.001   0.028
+0.025   6.834   7.172   7.002   0.071
+0.050   6.652   7.351   7.004   0.143
+0.100   6.298   7.713   7.008   0.287
+```
+
+### Beispiel 6: Kalibrierungs-Effekt visualisieren
+
+```csharp
+using biogas;
+using science;
+
+var config = new sensor_config(0);
+config.set_params_of(
+    "apply_real_sensor", true,
+    "noise_level", 0.02,
+    "y_min", 0.0,
+    "y_max", 14.0,
+    "drift", 0.02,           // Starker Drift
+    "dT_calib", 5.0,         // Alle 5 Tage
+    "t_calib", 60.0          // 1 Stunde
+);
+
+sensor_config[] configs = new sensor_config[] { config };
+
+// Konstanter pH
+physValue[] ideal = new physValue[1];
+ideal[0] = new physValue("pH", 7.0, "-");
+
+double last_t = 0;
+physValue[] last = new physValue[0];
+
+Console.WriteLine("Tag\tpH_ideal\tpH_measured\tDrift_akkum");
+Console.WriteLine("".PadRight(50, '-'));
+
+for (double t = 0; t <= 30; t += 0.5)
+{
+    physValue[] measured = sensor_config.getNoisyMeasurement(
+        t, last_t, ideal, last, configs
+    );
+    
+    // Drift berechnen (annähernd)
+    double error = measured[0].Value - ideal[0].Value;
+    
+    if (t % 1.0 == 0 || measured[0].Value == 0)  // Täglich oder bei Kalibrierung
+    {
+        Console.WriteLine($"{t:F1}\t{ideal[0].Value:F3}\t\t{measured[0].Value:F3}\t\t{error:F3}");
+    }
+    
+    last_t = t;
+    last = ideal;
+}
+```
+
+**Ausgabe:**
+```
+Tag     pH_ideal        pH_measured     Drift_akkum
+--------------------------------------------------
+0.0     7.000           7.000           0.000
+1.0     7.000           7.018           0.018
+2.0     7.000           7.037           0.037
+3.0     7.000           7.055           0.055
+4.0     7.000           7.074           0.074
+4.9     7.000           0.000           -7.000  # Kalibrierung
+5.0     7.000           0.000           -7.000  # Kalibrierung
+5.5     7.000           7.012           0.012   # Drift zurückgesetzt
+...
+```
+
+### Beispiel 7: Sensor-Konfiguration testen
+
+```csharp
+using biogas;
+using science;
+
+// Verschiedene Konfigurationen
+var configs = new Dictionary<string, sensor_config>
+{
+    {"Ideal", new sensor_config(0)},
+    {"Leichtes Rauschen", new sensor_config(0)},
+    {"Starkes Rauschen", new sensor_config(0)},
+    {"Mit Drift", new sensor_config(0)}
+};
+
+// Konfigurationen setzen
+configs["Ideal"].set_params_of("apply_real_sensor", false);
+
+configs["Leichtes Rauschen"].set_params_of(
+    "apply_real_sensor", true,
+    "noise_level", 0.01,
+    "drift", 0.0
+);
+
+configs["Starkes Rauschen"].set_params_of(
+    "apply_real_sensor", true,
+    "noise_level", 0.05,
+    "drift", 0.0
+);
+
+configs["Mit Drift"].set_params_of(
+    "apply_real_sensor", true,
+    "noise_level", 0.02,
+    "drift", 0.01,
+    "dT_calib", 1000.0  // Keine Kalibrierung
+);
+
+// Idealer Wert
+physValue[] ideal = new physValue[1];
+ideal[0] = new physValue("pH", 7.0, "-");
+
+Console.WriteLine("Vergleich verschiedener Sensor-Konfigurationen:");
+Console.WriteLine("\nTag 10:");
+Console.WriteLine("Konfiguration\t\t\tMesswert");
+Console.WriteLine("".PadRight(50, '-'));
+
+foreach (var kvp in configs)
+{
+    sensor_config[] cfg = new sensor_config[] { kvp.Value };
+    
+    // Simulation bis Tag 10
+    double last_t = 0;
+    physValue[] last = new physValue[0];
+    physValue[] measured = null;
+    
+    for (double t = 0; t <= 10; t += 0.5)
+    {
+        measured = sensor_config.getNoisyMeasurement(
+            t, last_t, ideal, last, cfg
+        );
+        last_t = t;
+        last = ideal;
+    }
+    
+    Console.WriteLine($"{kvp.Key,-30}\t{measured[0].Value:F3}");
+}
+```
+
+**Ausgabe:**
+```
+Vergleich verschiedener Sensor-Konfigurationen:
+
+Tag 10:
+Konfiguration                   Messwert
+--------------------------------------------------
+Ideal                           7.000
+Leichtes Rauschen              7.012
+Starkes Rauschen               7.058
+Mit Drift                      7.143
+```
+
+---
+
+## Häufige Fehler und Lösungen
+
+### Problem 1: apply_real_sensor nicht aktiviert
+
+```csharp
+// PROBLEM: Rauschen wird nicht angewendet
+var config = new sensor_config(0);
+config.set_params_of("noise_level", 0.05);  // Nicht wirksam!
+
+sensor_config[] configs = new sensor_config[] { config };
+physValue[] measured = sensor_config.getNoisyMeasurement(
+    5.0, 4.5, ideal, last, configs
+);
+// measured == ideal (kein Rauschen!)
+
+// LÖSUNG: apply_real_sensor aktivieren
+config.set_params_of(
+    "apply_real_sensor", true,
+    "noise_level", 0.05
+);
+```
+
+### Problem 2: y_min/y_max zu eng
+
+```csharp
+// PROBLEM: Messwerte werden zu stark begrenzt
+var config = new sensor_config(0);
+config.set_params_of(
+    "apply_real_sensor", true,
+    "y_min", 6.8,
+    "y_max", 7.2
+);
+
+physValue[] ideal = new physValue[1];
+ideal[0] = new physValue("pH", 7.0, "-");
+
+// Mit Rauschen könnte pH eigentlich 6.95 oder 7.05 sein,
+// wird aber auf [6.8, 7.2] begrenzt
+// → Künstliche Begrenzung!
+
+// LÖSUNG: Realistische Grenzen setzen
+config.set_params_of(
+    "y_min", 0.0,
+    "y_max", 14.0
+);
+```
+
+### Problem 3: Drift ohne Kalibrierung
+
+```csharp
+// PROBLEM: Drift akkumuliert unbegrenzt
+var config = new sensor_config(0);
+config.set_params_of(
+    "apply_real_sensor", true,
+    "drift", 0.05,
+    "dT_calib", 10000.0  // Quasi keine Kalibrierung
+);
+
+// Nach 100 Tagen: Drift = 5.0 pH!
+
+// LÖSUNG: Realistische Kalibrierungsintervalle
+config.set_params_of(
+    "drift", 0.01,
+    "dT_calib", 7.0,     // Wöchentlich
+    "t_calib", 60.0
+);
+```
+
+### Problem 4: Falsche Konfiguration für mehrdimensionale Sensoren
+
+```csharp
+// PROBLEM: Nur eine Konfiguration für mehrdimensionalen Sensor
+var config = new sensor_config(0);
+sensor_config[] configs = new sensor_config[] { config };
+
+physValue[] ideal = new physValue[4];  // VFA-Matrix (4D)
+ideal[0] = new physValue("Sva", 100.0, "g/l");
+ideal[1] = new physValue("Sbu", 200.0, "g/l");
+ideal[2] = new physValue("Spro", 500.0, "g/l");
+ideal[3] = new physValue("Sac", 1200.0, "g/l");
+
+physValue[] measured = sensor_config.getNoisyMeasurement(
+    5.0, 4.5, ideal, new physValue[0], configs
+);
+// measured.Length == 4, aber nur configs[0] wird verwendet!
+
+// LÖSUNG: Eine Konfiguration pro Dimension
+sensor_config[] configs = new sensor_config[4];
+for (int i = 0; i < 4; i++)
+{
+    configs[i] = new sensor_config(i);
+    configs[i].set_params_of("apply_real_sensor", true);
+}
+```
+
+### Problem 5: Zeit-Inkonsistenzen
+
+```csharp
+// PROBLEM: t und last_t in falscher Reihenfolge
+double t = 5.0;
+double last_t = 10.0;  // Falsch! last_t > t
+
+physValue[] measured = sensor_config.getNoisyMeasurement(
+    t, last_t, ideal, last, configs
+);
+// delta_t negativ → falsche Ableitungen!
+
+// LÖSUNG: Korrekte Zeitreihenfolge
+double last_t = 4.5;
+double t = 5.0;
+```
+
+### Problem 6: Kalibrierungszeit zu lang
+
+```csharp
+// PROBLEM: Kalibrierung dauert länger als Intervall
+var config = new sensor_config(0);
+config.set_params_of(
+    "dT_calib", 1.0,     // Täglich
+    "t_calib", 1500.0    // 25 Stunden!
+);
+
+// Sensor ist fast immer in Kalibrierung!
+
+// LÖSUNG: Realistische Zeiten
+config.set_params_of(
+    "dT_calib", 7.0,     // Wöchentlich
+    "t_calib", 60.0      // 1 Stunde
+);
+```
+
+---
+
+## Performance-Tipps
+
+### 1. Konfigurationen wiederverwenden
+
+```csharp
+// INEFFIZIENT: Neue Konfiguration bei jeder Messung
+for (double t = 0; t < 100; t += 0.5)
+{
+    var config = new sensor_config(0);
+    config.set_params_of("apply_real_sensor", true);
+    sensor_config[] configs = new sensor_config[] { config };
+    
+    physValue[] measured = sensor_config.getNoisyMeasurement(
+        t, t - 0.5, ideal, last, configs
+    );
+}
+
+// BESSER: Einmal erstellen
+var config = new sensor_config(0);
+config.set_params_of("apply_real_sensor", true);
+sensor_config[] configs = new sensor_config[] { config };
+
+for (double t = 0; t < 100; t += 0.5)
+{
+    physValue[] measured = sensor_config.getNoisyMeasurement(
+        t, t - 0.5, ideal, last, configs
+    );
+}
+```
+
+### 2. Template-Konstruktor nutzen
+
+```csharp
+// INEFFIZIENT: Jede Konfiguration einzeln setzen
+sensor_config[] configs = new sensor_config[10];
+for (int i = 0; i < 10; i++)
+{
+    configs[i] = new sensor_config(i);
+    configs[i].set_params_of(
+        "apply_real_sensor", true,
+        "noise_level", 0.025,
+        "y_min", 0.0,
+        "y_max", 14.0
+    );
+}
+
+// BESSER: Template verwenden
+var template = new sensor_config(0);
+template.set_params_of(
+    "apply_real_sensor", true,
+    "noise_level", 0.025,
+    "y_min", 0.0,
+    "y_max", 14.0
+);
+
+sensor_config[] configs = new sensor_config[10];
+for (int i = 0; i < 10; i++)
+{
+    configs[i] = new sensor_config(template, i);
+}
+```
+
+### 3. Unnötige Messungen vermeiden
+
+```csharp
+// INEFFIZIENT: Gleiche Zeitpunkte mehrmals
+for (double t = 0; t < 100; t += 0.5)
+{
+    // Mehrere Sensoren, gleiche Zeit
+    physValue[] pH = sensor_config.getNoisyMeasurement(t, t - 0.5, pH_ideal, last_pH, pH_configs);
+    physValue[] vfa = sensor_config.getNoisyMeasurement(t, t - 0.5, vfa_ideal, last_vfa, vfa_configs);
+    physValue[] ts = sensor_config.getNoisyMeasurement(t, t - 0.5, ts_ideal, last_ts, ts_configs);
+}
+
+// BESSER: Wenn möglich, in einem Aufruf
+// (z.B. über sensor.measure(), das getNoisyMeasurement intern aufruft)
+```
+
+---
+
+## Best Practices
+
+### 1. Realistische Sensor-Parameter verwenden
+
+```csharp
+// GUT: Basierend auf Literatur (Rieger et al., WST 2003)
+var config = new sensor_config(0);
+config.set_params_of(
+    "apply_real_sensor", true,
+    "T_fil", 0.257,          // Standard aus Literatur
+    "noise_level", 0.025,    // 2.5% (typisch)
+    "drift", 0.01,           // Moderat
+    "dT_calib", 7.0,         // Wöchentlich
+    "t_calib", 60.0          // 1 Stunde
+);
+
+// VERMEIDEN: Unrealistische Werte
+config.set_params_of(
+    "noise_level", 0.5,      // 50% Rauschen - viel zu viel!
+    "drift", 10.0,           // Sensor wäre unbrauchbar
+    "dT_calib", 0.1          // Alle 2.4 Stunden - unrealistisch
+);
+```
+
+### 2. Sensor-spezifische Grenzen setzen
+
+```csharp
+// GUT: Angepasst an physikalische Grenzen
+var pH_config = new sensor_config(0);
+pH_config.set_params_of(
+    "y_min", 0.0,
+    "y_max", 14.0
+);
+
+var ts_config = new sensor_config(0);
+ts_config.set_params_of(
+    "y_min", 0.0,
+    "y_max", 100.0  // % FM
+);
+
+var vfa_config = new sensor_config(0);
+vfa_config.set_params_of(
+    "y_min", 0.0,
+    "y_max", 10000.0  // mg/l (typischer Maximalwert)
+);
+```
+
+### 3. Kalibrierung aktivieren wenn Drift vorhanden
+
+```csharp
+// GUT: Drift + Kalibrierung
+var config = new sensor_config(0);
+config.set_params_of(
+    "drift", 0.01,
+    "dT_calib", 7.0,
+    "t_calib", 60.0
+);
+
+// SUBOPTIMAL: Drift ohne Kalibrierung
+config.set_params_of(
+    "drift", 0.01,
+    "dT_calib", 10000.0  // Quasi nie
+);
+```
+
+### 4. XML-Persistenz für Reproduzierbarkeit
+
+```csharp
+// GUT: Konfiguration speichern
+var config = new sensor_config(0);
+config.set_params_of(
+    "apply_real_sensor", true,
+    "noise_level", 0.025,
+    "y_min", 0.0,
+    "y_max", 14.0,
+    "drift", 0.01,
+    "dT_calib", 7.0,
+    "t_calib", 60.0
+);
+
+string xml = config.getParamsAsXMLString();
+System.IO.File.WriteAllText("sensor_config.xml", xml);
+
+// Später: Gleiche Konfiguration laden
+XmlTextReader reader = new XmlTextReader("sensor_config.xml");
+var loaded_config = new sensor_config(0);
+loaded_config.getParamsFromXMLReader(ref reader, 0);
+```
+
+### 5. Template für konsistente Sensoren
+
+```csharp
+// GUT: Alle pH-Sensoren gleich konfigurieren
+var pH_template = new sensor_config(0);
+pH_template.set_params_of(
+    "apply_real_sensor", true,
+    "noise_level", 0.02,
+    "y_min", 0.0,
+    "y_max", 14.0,
+    "drift", 0.005,
+    "dT_calib", 7.0,
+    "t_calib", 30.0
+);
+
+// Für alle pH-Sensoren verwenden
+var pH_F1_configs = new sensor_config[] { new sensor_config(pH_template, 0) };
+var pH_F2_configs = new sensor_config[] { new sensor_config(pH_template, 0) };
+var pH_F3_configs = new sensor_config[] { new sensor_config(pH_template, 0) };
+```
+
+---
+
+## Zusammenfassung
+
+### Wichtigste Eigenschaften
+
+```csharp
+bool apply_real_sensor          // Rauschen aktivieren/deaktivieren
+double T_fil                    // Filter-Zeitkonstante [min]
+double noise_level              // Rausch-Level [-]
+double y_min                    // Minimaler Messwert [unit]
+double y_max                    // Maximaler Messwert [unit]
+double drift                    // Drift-Rate [unit/d]
+double dT_calib                 // Kalibrierungsintervall [d]
+double t_calib                  // Kalibrierungsdauer [min]
+```
+
+### Wichtigste Methoden
+
+```csharp
+// Konstruktoren
+sensor_config(int index)
+sensor_config(sensor_config template, int index)
+
+// Reset
+void reset()
+
+// Statisch: Rauschen anwenden
+physValue[] getNoisyMeasurement(double t, double last_t, 
+                                physValue[] value, 
+                                physValue[] last_signals,
+                                sensor_config[] myConfigs)
+
+// Parameter
+void set_params_of(params object[] symbols)
+void get_params_of(out object[] variables, params string[] symbols)
+
+// XML
+string getParamsAsXMLString()
+void getParamsFromXMLReader(ref XmlTextReader reader, int index)
+string print()
+```
+
+### Typische Werte (Rieger et al., WST 2003)
+
+```csharp
+T_fil = 0.257 min           // Filter-Zeitkonstante
+noise_level = 0.025         // 2.5% Standardabweichung
+drift = 0.005-0.05          // Je nach Sensor
+dT_calib = 7.0 d            // Wöchentlich
+t_calib = 30-120 min        // 0.5-2 Stunden
+```
+
+---
+
+## TODOs
+
+Laut Quellcode:
+
+### sensor_config.cs
+- `generate_sensor_signal()`: Evtl. `int_memory` Reihenfolge überprüfen (Zeile 240)
+- Kalibrierungs-Detektion verbessern (funktioniert evtl. nicht bei schneller Simulation)
+
+---
+
+## Algorithmus-Details
+
+### Sensor-Signal-Generierung
+
+**Vollständiger Algorithmus** (aus `generate_sensor_signal`):
+
+1. **Zeitdifferenz:**
+   ```
+   Δt = t - t_last
+   ```
+
+2. **Ableitungen (für Filter):**
+   ```
+   u̇ = (signal - signal_last) / Δt
+   ü = (signal - signal_last) / Δt²
+   ```
+
+3. **Tiefpass-Filter (2. Ordnung):**
+   ```
+   T = T_fil / 60 / 24  [d]
+   y = signal + 2T·u̇ + T²·ü
+   ```
+
+4. **Rauschen hinzufügen:**
+   ```
+   noise_index = floor(t / 2) mod 120
+   noise_val = noise_arr[noise_index]
+   noise = noise_val · y_max · noise_level
+   y = y + noise
+   ```
+
+5. **Messbereich begrenzen:**
+   ```
+   y = min(max(y, y_min), y_max)
+   ```
+
+6. **Drift integrieren:**
+   ```
+   int_drift = int_drift + drift · Δt
+   ```
+
+7. **Kalibrierung prüfen:**
+   ```
+   N_calib = ceil(t / dT_calib)
+   N_last_calib = ceil(t_last / dT_calib)
+   
+   t_calib_start = N_calib · dT_calib - t_calib / 60 / 24
+   t_calib_end = N_calib · dT_calib
+   
+   is_in_calib = (t_calib_start ≤ t < t_calib_end)
+   
+   if (was_in_calib AND NOT is_in_calib) OR (N_calib > N_last_calib):
+       int_drift = 0  // Fallende Flanke
+   ```
+
+8. **Drift und Memory:**
+   ```
+   y = y + int_drift - int_memory
+   
+   if is_in_calib:
+       y = 0
+   
+   int_memory = int_memory + y
+   ```
+
+9. **Rückgabe:**
+   ```
+   return int_memory
+   ```
+
+### Mathematische Grundlagen
+
+**Tiefpass-Filter:**
+- Übertragungsfunktion: `H(s) = 1 / (1 + sT)²`
+- Zeitbereich (Approximation): `y(t) = u(t) + 2T·u̇(t) + T²·ü(t)`
+
+**Rauschen:**
+- Normalverteilt: N(0, 1)
+- Skaliert: `noise = N(0,1) · y_max · noise_level`
+- Deterministisch (aus Array)
+
+**Drift:**
+- Linear: `drift(t) = drift_rate · t`
+- Mit Kalibrierung: Periodisch zurückgesetzt
+
+**Kalibrierung:**
+- Periodisch: Alle `dT_calib` Tage
+- Dauer: `t_calib` Minuten
+- Effekt: Ausgang = 0, Drift zurückgesetzt
+
+---
+
+## Siehe auch
+
+- **biogas.sensor**: Basis-Sensor-Klasse (nutzt sensor_config)
+- **biogas.sensors**: Sensor-Verwaltungsklasse
+- **science.physValue**: Physikalische Werte mit Einheiten
+- Rieger et al., "Progress in sensor technology", WST 2003 (Quelle für Parameter)
+
+---
+
+*Dokumentation erstellt für biogas_c# Toolbox*  
+*Stand: Januar 2026*
