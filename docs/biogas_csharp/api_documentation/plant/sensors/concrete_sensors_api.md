@@ -1693,4 +1693,768 @@ protected override physValue[] doMeasurement(plant myPlant, double u,
 **Eingabe:**
 - `myPlant` (plant): Anlagen-Objekt
 - `u` (double): Volumenstrom [m³/d]
-- `par[
+- `par[0]` (double): Zu pumpende Menge [m³/d]
+- `par[1]` (double): Dichte [kg/m³] (nur für substrate_transport)
+
+**Ausgabe:**
+- `physValue[1]`: Pumpenenergie [kWh/d]
+
+**Ausnahmen:**
+- `exception`: Wenn `par.Length <= 0` oder `> 2`
+
+**Berechnung:**
+```csharp
+// Pumpe oder Substrat-Transport holen
+pump myPump = myTransportations.getPumpByID(id_suffix);
+// oder
+substrate_transport mySubsTransport = myTransportations.getSubstrateTransportByID(id_suffix);
+
+// Gravitationskonstante
+physValue g = myPlant.g;
+
+// Dichte (Sludge: 1000 kg/m³, Substrat: übergeben)
+physValue rho = new physValue("rho", par[1], "kg/m³");
+
+// Energie berechnen
+P_pump = myPump.calcEnergyConsumption(u, par[0], g, rho)
+```
+
+**Beispiel:**
+```csharp
+var sensor = new pumpEnergy_sensor("F1_F2");
+
+// Sludge-Pumpe (nur 1 Parameter)
+double Q_pump = 150.0;  // m³/d
+double Q_actual = 150.0;
+physValue[] energy = sensor.measure(5.0, 0.5, plant, Q_pump, Q_actual);
+
+Console.WriteLine($"Pumpenenergie: {energy[0].Value:F1} kWh/d");
+
+// Substrat-Transport (2 Parameter)
+var trans_sensor = new pumpEnergy_sensor("substratemix_F1");
+double rho = 1050.0;  // kg/m³
+physValue[] energy_trans = trans_sensor.measure(5.0, 0.5, plant, Q_pump, Q_actual, rho);
+```
+
+**Hinweis:** `id_suffix` ist `unit_start + "_" + unit_destiny` (z.B. `"F1_F2"`).
+
+---
+
+### transportEnergy_sensor
+
+Misst den Energieverbrauch für Substrat-Transport.
+
+**Spezifikation:** `"transportEnergy"`
+
+**Dimension:** 1
+
+**Typ:** 80 (Custom - Typ 4)
+
+**Konstruktor:**
+```csharp
+public transportEnergy_sensor(string id_suffix)
+```
+
+**Parameter:**
+- `id_suffix` (string): `unit_start + "_" + unit_destiny`
+
+**doMeasurement:**
+```csharp
+protected override physValue[] doMeasurement(double[] x, params double[] par)
+{
+    throw new exception("Not implemented!");
+}
+
+protected override physValue[] doMeasurement(plant myPlant, double u, 
+                                             params double[] par)
+```
+
+**Eingabe:**
+- `u` (double): Volumenstrom [m³/d]
+- `par[0]` (double): Dichte [kg/m³]
+
+**Ausgabe:**
+- `physValue[1]`: Transportenergie [kWh/d]
+
+**Ausnahmen:**
+- `exception`: Wenn `par.Length != 1`
+
+**Berechnung:**
+```csharp
+substrate_transport mySubsTransport = myTransportations.getSubstrateTransportByID(id_suffix);
+
+// Energie pro Tonne
+double energy_per_ton = mySubsTransport.energy_per_ton;
+
+// Transportenergie
+P_trans = u * par[0] / 1000 * energy_per_ton  // [kWh/d]
+```
+
+**Beispiel:**
+```csharp
+var sensor = new transportEnergy_sensor("substratemix_F1");
+
+double Q = 150.0;  // m³/d
+double rho = 1050.0;  // kg/m³
+
+physValue[] energy = sensor.measure(5.0, 0.5, plant, Q, rho);
+
+Console.WriteLine($"Transportenergie: {energy[0].Value:F1} kWh/d");
+
+// Typisch: 0.5-2 kWh/t
+double energy_per_ton = energy[0].Value / (Q * rho / 1000);
+Console.WriteLine($"Spezifische Energie: {energy_per_ton:F2} kWh/t");
+```
+
+**Hinweis:** 
+- **TODO:** Dokumentation verbessern
+- `unit_start` ist immer `"substratemix"`
+
+---
+
+### stirrer_sensor
+
+Misst die elektrische Leistung aller Rührwerke in einem Fermenter.
+
+**Spezifikation:** `"stirrer"`
+
+**Dimension:** 2
+
+**Typ:** 7
+
+**Konstruktor:**
+```csharp
+public stirrer_sensor(string id_suffix)
+```
+
+**Parameter:**
+- `id_suffix` (string): Fermenter-ID
+
+**doMeasurement:**
+```csharp
+protected override physValue[] doMeasurement(double[] x, params double[] par)
+{
+    throw new exception("Not implemented!");
+}
+
+protected override physValue[] doMeasurement(double[] x, plant myPlant,
+                                             substrates mySubstrates,
+                                             sensors mySensors,
+                                             double[] Q, params double[] par)
+```
+
+**Eingabe:**
+- `x` (double[]): ADM-Zustand (nicht verwendet)
+- `mySensors` (sensors): Sensor-Sammlung (für TS-Wert)
+- `Q` (double[]): Nicht verwendet
+
+**Ausgabe:**
+- `physValue[2]`:
+  - `[0]`: Elektrische Energie [kWh/d]
+  - `[1]`: Dissipierte Wärme [kWh/d]
+
+**Berechnung:**
+```csharp
+digester myDigester = myPlant.getDigesterByID(id_suffix);
+
+// Elektrische Leistung
+P_el = myDigester.calcStirrerPower(mySensors)
+
+// Dissipierte Wärme (geht in Fermenter)
+P_th = myDigester.calcStirrerDissipation(mySensors)
+```
+
+**Beispiel:**
+```csharp
+var sensor = new stirrer_sensor("F1");
+
+// Über sensors-Klasse messen (Typ 7)
+double[] x = /* ADM-Zustand */;
+double[] Q = new double[4];  // Nicht verwendet
+
+mySensors.measure_type7(5.0, x, plant, substrates, mySensors,
+                        substrate_network, plant_network, "F1");
+
+double P_el, P_th;
+mySensors.getCurrentMeasurementD("stirrer_F1", 0, out P_el);
+mySensors.getCurrentMeasurementD("stirrer_F1", 1, out P_th);
+
+Console.WriteLine($"Rührwerk-Energie:");
+Console.WriteLine($"  Elektrisch: {P_el:F1} kWh/d");
+Console.WriteLine($"  Dissipiert: {P_th:F1} kWh/d");
+Console.WriteLine($"  Anteil: {P_th/P_el*100:F1}%");
+```
+
+**Hinweis:** Wird in `ADMstate_stoichiometry.cs -> measure_type7` aufgerufen.
+
+---
+
+## 4. Biogas-Sensoren
+
+### biogas_sensor
+
+Misst die Biogasproduktion eines Fermenters.
+
+**Spezifikation:** `"biogas"`
+
+**Dimension:** `2 * (int)BioGas.n_gases` (typisch: 6 für 3 Gase)
+
+**Typ:** 99 (Custom)
+
+**Konstruktor:**
+```csharp
+public biogas_sensor(string id_suffix)
+```
+
+**Parameter:**
+- `id_suffix` (string): Fermenter-ID
+
+**doMeasurement:**
+```csharp
+protected override physValue[] doMeasurement(double[] u, params double[] par)
+```
+
+**Eingabe:**
+- `u` (double[]): Biogasstrom [m³/d] (Dimension: `BioGas.n_gases`, typisch 3: H2, CH4, CO2)
+
+**Ausgabe:**
+- `physValue[2 * n_gases]`:
+  - `[0..n_gases-1]`: Gasströme [m³/d]
+  - `[n_gases..2*n_gases-1]`: Gasanteile [%]
+
+**Ausnahmen:**
+- `exception`: Wenn `u.Length < BioGas.n_gases`
+- `exception`: Wenn `u` leer
+
+**Berechnung:**
+```csharp
+// Prozentuale Zusammensetzung
+double[] QgasP;
+BioGas.calcPercentualBiogasComposition(u, out QgasP);
+
+// Ersten n_gases Werte: Absolut
+values[0..n_gases-1] = u
+
+// Nächsten n_gases Werte: Prozentual
+values[n_gases..2*n_gases-1] = QgasP
+```
+
+**Spezielle Methoden:**
+```csharp
+public override physValue getCurrentMeasurement(string param, bool noisy)
+public override physValue[] getMeasurementStream(string param, bool noisy)
+public override physValue getMeasurementAt(string param, double t, bool noisy)
+
+public void getCurrentMeasurement(string param, out double value)
+public void getCurrentMeasurement(string param, bool noisy, out double value)
+```
+
+**Parameter-Namen:**
+- `"H2_%"`: Wasserstoff-Anteil [%]
+- `"CH4_%"`: Methan-Anteil [%]
+- `"CO2_%"`: Kohlendioxid-Anteil [%]
+- `"biogas_m3_d"`: Gesamt-Biogas [m³/d]
+
+**Beispiel:**
+```csharp
+var sensor = new biogas_sensor("F1");
+
+// Biogasstrom aus ADM
+double[] biogas = {10.0, 500.0, 250.0};  // H2, CH4, CO2 [m³/d]
+
+physValue[] measured = sensor.measure(5.0, 0.5, biogas);
+
+// Direkt abrufen
+Console.WriteLine("Gasströme:");
+Console.WriteLine($"  H2: {measured[0].Value:F1} m³/d");
+Console.WriteLine($"  CH4: {measured[1].Value:F1} m³/d");
+Console.WriteLine($"  CO2: {measured[2].Value:F1} m³/d");
+
+Console.WriteLine("\nGasanteile:");
+Console.WriteLine($"  H2: {measured[3].Value:F2}%");
+Console.WriteLine($"  CH4: {measured[4].Value:F2}%");
+Console.WriteLine($"  CO2: {measured[5].Value:F2}%");
+
+// Parameter-Zugriff
+physValue ch4_percent = sensor.getCurrentMeasurement("CH4_%");
+physValue total_biogas = sensor.getCurrentMeasurement("biogas_m3_d");
+
+Console.WriteLine($"\nMethan-Anteil: {ch4_percent.Value:F2}%");
+Console.WriteLine($"Gesamt-Biogas: {total_biogas.Value:F1} m³/d");
+```
+
+**Hinweise:**
+- **NICHT FERTIG** - hängt von Anzahl gemessener Gase ab
+- `"biogas_m3_d"` ist Summe aller Gase
+
+---
+
+### total_biogas_sensor
+
+Misst die gesamte Biogasproduktion der Anlage und Verteilung auf BHKWs.
+
+**Spezifikation:** `"total_biogas"`
+
+**Dimension:** `n_chp * n_gases + n_gases + 1 + 1`
+
+**Typ:** 87 (Custom - Typ 5)
+
+**Konstruktor:**
+```csharp
+public total_biogas_sensor(string id, plant myPlant)
+```
+
+**Parameter:**
+- `id` (string): Bezeichner (beliebig)
+- `myPlant` (plant): Anlagen-Objekt
+
+**doMeasurement:**
+```csharp
+protected override physValue[] doMeasurement(double[] u, params double[] par)
+{
+    throw new exception("Not implemented!");
+}
+
+protected override physValue[] doMeasurement(plant myPlant, double[] u,
+                                             string gas2bhkwsplittype,
+                                             params double[] par)
+```
+
+**Eingabe:**
+- `u` (double[]): Biogas aller Fermenter [m³/d] (n_digester * n_gases)
+  - Format: (H2, CH4, CO2)_F1, (H2, CH4, CO2)_F2, ...
+- `gas2bhkwsplittype` (string): Verteilungsstrategie
+  - `"fiftyfifty"`: Gleichmäßige Verteilung auf alle BHKWs
+  - `"one2one"`: BHKW i bekommt Gas von Fermenter i (n_chp == n_digester)
+  - `"threshold"`: Nach BHKW-Kapazität (bis max. Methanverbrauch)
+
+**Ausgabe:**
+- `physValue[dimension]`:
+  - `[0]`: Gesamt-Biogasproduktion [m³/d]
+  - `[1..n_gases]`: Gesamt-Gas prozentual [%]
+  - `[n_gases+1..n_gases+n_chp*n_gases]`: Gas pro BHKW [m³/d]
+  - `[letztes]`: Überschuss-Biogas [m³/d]
+
+**Berechnung:**
+```csharp
+// Gesamt-Biogas
+double[] biogas_total = BioGas.merge_streams(u, n_digester);
+double total_biogas = sum(biogas_total);
+
+// Prozentuale Zusammensetzung
+double[] biogas_total_perc = BioGas.calcRelContent(biogas_total, out total_biogas);
+
+// Verteilung nach Strategie
+switch (gas2bhkwsplittype)
+{
+    case "fiftyfifty":
+        gas_out = repmat(biogas_total / n_chp, n_chp);
+        break;
+    
+    case "one2one":
+        gas_out = u;  // Direkt zuordnen
+        break;
+    
+    case "threshold":
+        // Nach BHKW-Kapazität verteilen
+        for each CHP:
+            gas_max = CHP.getMaxMethaneConsumption();
+            gas_out = min(biogas_total[CH4], gas_max);
+            biogas_total -= gas_out;
+        break;
+}
+
+// Überschuss
+gas_excess = max(total_biogas - sum(gas_out), 0);
+```
+
+**Beispiel:**
+```csharp
+// Sensor erstellen
+var sensor = new total_biogas_sensor("total", plant);
+
+// Biogas von 2 Fermentern
+double[] biogas_all = {
+    5.0, 400.0, 200.0,  // F1: H2, CH4, CO2
+    8.0, 450.0, 220.0   // F2: H2, CH4, CO2
+};
+
+// Über sensors-Klasse messen (Typ 5)
+mySensors.measure(
+    5.0,
+    "total_biogas_total",
+    plant,
+    biogas_all,
+    "threshold"  // Nach Kapazität verteilen
+);
+
+// Gesamt-Produktion
+double total = mySensors.getCurrentMeasurementD("total_biogas_total", 0);
+Console.WriteLine($"Gesamt-Biogas: {total:F1} m³/d");
+
+// Zusammensetzung
+double h2_pct = mySensors.getCurrentMeasurementD("total_biogas_total", 1);
+double ch4_pct = mySensors.getCurrentMeasurementD("total_biogas_total", 2);
+double co2_pct = mySensors.getCurrentMeasurementD("total_biogas_total", 3);
+
+Console.WriteLine("\nZusammensetzung:");
+Console.WriteLine($"  H2: {h2_pct:F2}%");
+Console.WriteLine($"  CH4: {ch4_pct:F2}%");
+Console.WriteLine($"  CO2: {co2_pct:F2}%");
+
+// BHKW-Verteilung
+int n_gases = 3;
+for (int i = 0; i < plant.getNumCHPs(); i++)
+{
+    string chp_id = plant.getCHPID(i + 1);
+    double ch4_to_chp = mySensors.getCurrentMeasurementD(
+        "total_biogas_total",
+        n_gases + 1 + i * n_gases + 1  // CH4-Index für BHKW i
+    );
+    Console.WriteLine($"  {chp_id}: {ch4_to_chp:F1} m³ CH4/d");
+}
+
+// Überschuss
+int last_index = sensor.dimension - 1;
+double excess = mySensors.getCurrentMeasurementD("total_biogas_total", last_index);
+Console.WriteLine($"\nÜberschuss: {excess:F1} m³/d");
+```
+
+**Hinweise:**
+- **NICHT FERTIG** - hängt stark von Anzahl Gase ab
+- Wichtig für Energie-Bilanzierung und BHKW-Steuerung
+
+---
+
+## 5. Substrat-Sensoren
+
+### substrate_sensor
+
+Misst Parameter von Substraten.
+
+**Spezifikation:** `"substrate"`
+
+**Dimension:** 1
+
+**Typ:** 89 (Custom - Typ 3)
+
+**Konstruktor:**
+```csharp
+public substrate_sensor(string parameter)
+```
+
+**Parameter:**
+- `parameter` (string): Substrat-Parameter (z.B. `"cost"`)
+
+**Hinweis:** `id_suffix` ist hier der Parameter-Name, nicht die Substrat-ID.
+
+**doMeasurement:**
+```csharp
+protected override physValue[] doMeasurement(double[] x, params double[] par)
+{
+    throw new exception("Not implemented!");
+}
+
+protected override physValue[] doMeasurement(double[] x, substrates mySubstrates,
+                                             double[] Q, params double[] par)
+```
+
+**Eingabe:**
+- `x` (double[]): Nicht verwendet
+- `mySubstrates` (substrates): Substrat-Liste
+- `Q` (double[]): Substrat-Volumenströme [m³/d]
+
+**Ausgabe:**
+- `physValue[1]`: Gewichteter Mittelwert des Parameters
+
+**Berechnung:**
+```csharp
+// id_suffix ist der Parameter (z.B. "cost")
+mySubstrates.get_weighted_sum_of(Q, id_suffix, out value);
+value.Symbol = id_suffix;
+```
+
+**Beispiel:**
+```csharp
+// Substratkosten-Sensor
+var cost_sensor = new substrate_sensor("cost");
+
+double[] Q = {100.0, 50.0, 30.0};  // Mais, Gülle, Gras [m³/d]
+
+physValue[] cost = cost_sensor.measure(5.0, 0.5, new double[1], substrates, Q);
+
+Console.WriteLine($"Substratkosten: {cost[0].Value:F2} {cost[0].Unit}");
+
+// Andere Parameter
+var ts_sensor = new substrate_sensor("TS");
+physValue[] ts_mean = ts_sensor.measure(5.0, 0.5, new double[1], substrates, Q);
+Console.WriteLine($"Mittlerer TS: {ts_mean[0].Value:F2} % FM");
+```
+
+**Hinweise:**
+- **TODO:** das Q aus volumeflow_files stimmt bei Regelung nicht mit realen Qs überein
+- Flexibler Sensor für beliebige Substrat-Parameter
+
+---
+
+### substrateparams_sensor
+
+Misst detaillierte Substrat-Parameter (Laborproben).
+
+**Spezifikation:** `"substrateparams"`
+
+**Dimension:** 10
+
+**Typ:** 88 (Custom)
+
+**Konstruktor:**
+```csharp
+public substrateparams_sensor(string id_suffix)
+```
+
+**Parameter:**
+- `id_suffix` (string): Substrat-ID
+
+**doMeasurement:**
+```csharp
+protected override physValue[] doMeasurement(double[] x, params double[] par)
+```
+
+**Eingabe:**
+- `x[0]` (double): TS [% FM]
+- `x[1]` (double): VS [% FM] (wird zu [% TS] konvertiert)
+- `x[2]` (double): pH [-]
+- `x[3]` (double): VFA [gHaceq/l]
+- `x[4]` (double): TAC [gCaCO3/l]
+- `x[5]` (double): NH4-N [g/l]
+- `x[6]` (double): RL [% TS]
+- `x[7]` (double): RP [% TS]
+- `x[8]` (double): RF [% TS]
+- `x[9]` (double): COD [gCOD/l]
+
+**Ausgabe:**
+- `physValue[10]`: Alle Parameter mit korrekten Einheiten
+
+**Ausnahmen:**
+- `exception`: Wenn `x.Length != 10`
+
+**Berechnung:**
+```csharp
+values[0] = new physValue("TS", x[0], "% FM");
+values[1] = new physValue("VS", x[1]/x[0] * 100, "% TS");  // Umrechnung!
+values[2] = new physValue("pH", x[2], "-");
+values[3] = new physValue("VFA", x[3], "gHAceq/l");
+values[4] = new physValue("TAC", x[4], "gCaCO3/l");
+values[5] = new physValue("NH4-N", x[5], "g/l");
+values[6] = new physValue("RL", x[6], "% TS");
+values[7] = new physValue("RP", x[7], "% TS");
+values[8] = new physValue("RF", x[8], "% TS");
+values[9] = new physValue("COD", x[9], "gCOD/l");
+```
+
+**Spezielle Methoden:**
+```csharp
+public override physValue getMeasurementAt(string param, double t)
+```
+
+**Parameter-Namen:**
+- `"TS_%FM"`: Trockensubstanz
+- `"VS_%TS"`: Organische Trockensubstanz
+- `"pH"`: pH-Wert
+- `"VFA_gl"`: Flüchtige Fettsäuren
+- `"TAC_gl"`: Alkalität
+- `"NH4N_gl"`: Ammonium-Stickstoff
+- `"RL_%TS"`: Rohfett
+- `"RP_%TS"`: Rohprotein
+- `"RF_%TS"`: Rohfaser
+- `"COD_gl"`: Chemischer Sauerstoffbedarf
+
+**Statische Methoden:**
+```csharp
+public static void set_substrate_params_from_sensor(double t, sensors mySensors,
+                                                     substrates mySubstrates,
+                                                     string substrate_id)
+
+public static void set_substrate_params_from_sensor(double t, sensors mySensors,
+                                                     substrate mySubstrate)
+```
+
+Aktualisiert Substrat-Parameter aus Sensor-Messungen.
+
+**Beispiel:**
+```csharp
+// Sensor erstellen
+var sensor = new substrateparams_sensor("maize");
+
+// Labor-Analyse
+double[] analysis = {
+    25.0,   // TS: 25% FM
+    22.5,   // VS: 22.5% FM (wird zu 90% TS)
+    4.5,    // pH
+    0.5,    // VFA
+    2.0,    // TAC
+    0.8,    // NH4-N
+    2.5,    // RL
+    8.0,    // RP
+    20.0,   // RF
+    300.0   // COD
+};
+
+physValue[] params = sensor.measure(5.0, 0.5, analysis);
+
+Console.WriteLine("Substrat-Analyse:");
+Console.WriteLine($"  TS: {params[0].Value:F2} % FM");
+Console.WriteLine($"  VS: {params[1].Value:F2} % TS");
+Console.WriteLine($"  pH: {params[2].Value:F2}");
+Console.WriteLine($"  VFA: {params[3].Value:F2} gHAceq/l");
+Console.WriteLine($"  TAC: {params[4].Value:F2} gCaCO3/l");
+Console.WriteLine($"  NH4-N: {params[5].Value:F2} g/l");
+Console.WriteLine($"  RL: {params[6].Value:F2} % TS");
+Console.WriteLine($"  RP: {params[7].Value:F2} % TS");
+Console.WriteLine($"  RF: {params[8].Value:F2} % TS");
+Console.WriteLine($"  COD: {params[9].Value:F2} gCOD/l");
+
+// Parameter-spezifischer Zugriff
+physValue ts = sensor.getMeasurementAt("TS_%FM", 5.0);
+physValue vs = sensor.getMeasurementAt("VS_%TS", 5.0);
+
+// Substrat-Parameter aktualisieren
+substrateparams_sensor.set_substrate_params_from_sensor(
+    5.0,
+    mySensors,
+    substrates,
+    "maize"
+);
+
+// Substrat wurde aktualisiert
+double new_ts = substrates.get("maize").get_param_of("TS");
+Console.WriteLine($"\nAktualisierter TS: {new_ts:F2} % FM");
+```
+
+**Hinweise:**
+- **NICHT FERTIG** - `set_substrate_params_from_sensor` muss stark verbessert werden
+- Wichtig für adaptive Simulation mit aktuellen Labor-Analysen
+
+---
+
+## 6. Fitness-Sensoren
+
+Fitness-Sensoren messen Ziel-Abweichungen für Optimierungen.
+
+### fitness_sensor
+
+Basis-Fitness-Sensor (speichert berechnete Fitness-Werte).
+
+**Spezifikation:** `"fitness"`
+
+**Dimension:** Variable (abhängig von Anzahl Objectives)
+
+**Typ:** 94 (Custom - Typ 2)
+
+**Konstruktor:**
+```csharp
+public fitness_sensor()
+```
+
+**Hinweis:** Kein `id_suffix` - gilt für gesamte Optimierung.
+
+**doMeasurement (Vector):**
+```csharp
+protected override physValue[] doMeasurement(double[] x, params double[] par)
+```
+
+**Eingabe:**
+- `x` (double[]): Fitness-Vektor (ein Wert pro Objective)
+
+**Ausgabe:**
+- `physValue[nObj]`: Fitness-Werte mit generischen Namen `"fitness 0"`, `"fitness 1"`, etc.
+
+**doMeasurement (Skalar):**
+```csharp
+protected override physValue[] doMeasurement(double param)
+```
+
+**Eingabe:**
+- `param` (double): Gesamt-Fitness (skalarer Wert)
+
+**Ausgabe:**
+- `physValue[1]`: Gesamt-Fitness mit Symbol `"fitness"`
+
+**Beispiel:**
+```csharp
+var sensor = new fitness_sensor();
+
+// Skalare Fitness
+double fitness_val = 0.123;
+physValue[] fitness = sensor.measure(10.0, 1.0, fitness_val);
+Console.WriteLine($"Fitness: {fitness[0].Value:F4}");
+
+// Multi-Objective
+double[] fitness_vec = {0.05, 0.12, 0.08};  // 3 Objectives
+physValue[] fitness_multi = sensor.measure(10.0, 1.0, fitness_vec);
+
+for (int i = 0; i < fitness_multi.Length; i++)
+{
+    Console.WriteLine($"Objective {i}: {fitness_multi[i].Value:F4}");
+}
+```
+
+**Hinweise:**
+- **TODO:** Dimension ist variabel, hängt von Anzahl Objectives ab
+- Dimension für real sensor egal, aber wichtig für sensor_config
+
+---
+
+### Spezifische Fitness-Sensoren
+
+Alle spezifischen Fitness-Sensoren haben folgende Struktur:
+
+**Typ:** 8 (benötigt plant, fitness_params, sensors)
+
+**doMeasurement:**
+```csharp
+protected override physValue[] doMeasurement(double[] x, params double[] par)
+{
+    throw new exception("Not implemented!");
+}
+
+protected override physValue[] doMeasurement(plant myPlant,
+                                             fitness_params myFitnessParams,
+                                             sensors mySensors,
+                                             params double[] par)
+```
+
+---
+
+#### pH_fit_sensor, VFA_fit_sensor, TS_fit_sensor, etc.
+
+Messen Abweichungen von Sollwerten.
+
+**Spezifikationen:**
+- `"pH_fit"`: pH-Fitness
+- `"VFA_fit"`: VFA-Fitness
+- `"VFA_TAC_fit"`: VFA/TAC-Fitness
+- `"TS_fit"`: TS-Fitness
+- `"OLR_fit"`: OLR-Fitness
+- `"TAC_fit"`: TAC-Fitness
+- `"HRT_fit"`: HRT-Fitness
+- `"N_fit"`: Stickstoff-Fitness
+- `"CH4_fit"`: Methan-Fitness
+- `"SS_COD_fit"`: Löslicher COD-Fitness
+- `"VS_COD_fit"`: Partikulärer COD-Fitness
+
+**Dimension:** 1
+
+**Konstruktor:**
+```csharp
+public pH_fit_sensor()
+// ... analog für andere
+```
+
+**Hinweis:** Kein `id_suffix`.
+
+**Berechnung (allgemein):**
+```csharp
+// Hole Grenzwerte aus fitness_params
+double var_min = myFitnessParams.get_param_of("pH_min");
+double
