@@ -1,146 +1,146 @@
 # Biogas C# Toolbox
 
-Eine umfassende C#-Bibliothek zur Modellierung, Simulation und Optimierung von Biogasanlagen.
+A comprehensive C# library for modeling, simulation, and optimization of biogas plants.
 
-## 📋 Übersicht
+## 📋 Overview
 
-Die **Biogas C# Toolbox** ist eine spezialisierte Softwarebibliothek für die Simulation und Optimierung von Biogasanlagen. Sie basiert auf dem **Anaerobic Digestion Model No. 1 (ADM1)** und bietet umfangreiche Funktionen zur Modellierung aller relevanten Komponenten einer Biogasanlage.
+The **Biogas C# Toolbox** is a specialized software library for the simulation and optimization of biogas plants. It is based on the **Anaerobic Digestion Model No. 1 (ADM1)** and provides extensive functionality for modeling all relevant components of a biogas plant.
 
-### Hauptmerkmale
+### Key Features
 
-- **Vollständige Anlagenmodellierung**: Fermenter, BHKWs, Pumpen, Substrate, Sensoren
-- **ADM1-Integration**: Wissenschaftlich validiertes Prozessmodell
-- **Physikochemische Berechnungen**: Buswell-Gleichung, COD, BMP, Elementarbilanzen
-- **Optimierung**: Fitness-Funktionen, Constraints, Multi-Objective-Optimierung
-- **Wirtschaftlichkeit**: EEG-Vergütung (2009/2012), Kosten-Nutzen-Analyse
-- **Sensor-Simulation**: Realistische Sensoren mit Rauschen, Drift und Kalibrierung
-- **XML-Persistenz**: Speichern und Laden aller Konfigurationen
+- **Full Plant Modeling**: Digesters, CHPs, pumps, substrates, sensors
+- **ADM1 Integration**: Scientifically validated process model
+- **Physicochemical Calculations**: Buswell equation, COD, BMP, elemental balances
+- **Optimization**: Fitness functions, constraints, multi-objective optimization
+- **Economics**: Renewable Energy Sources Act (EEG) remuneration (2009/2012), cost-benefit analysis
+- **Sensor Simulation**: Realistic sensors with noise, drift, and calibration
+- **XML Persistence**: Save and load all configurations
 
 ## 🚀 Quick Start
 
-In dem biogas_c# Ordner liegt der C# Source Code mit dem DLLs erstellt werden können. Diese DLLs werden für das folgende Beispiel benötigt.
+The `biogas_c#` folder contains the C# source code that can be used to create DLLs. These DLLs are required for the following example.
 
-### Einfaches Beispiel: Biogasanlage simulieren
+### Simple Example: Simulating a Biogas Plant
 
 ```csharp
 using biogas;
 using science;
 
-// Anlage laden
+// Load plant configuration
 var plant = new plant("plant_config.xml");
 var substrates = new substrates("substrates.xml");
 var sensors = sensors.create_sensor_network(plant, substrates, 
                                             plant_network, plant_network_max);
 
-// Substratfütterung definieren
-double[] Q = {100.0, 50.0};  // m³/d Mais und Gülle
+// Define substrate feeding (e.g., maize and manure)
+double[] Q = {100.0, 50.0};  // m³/d
 
-// Simulation über 30 Tage
+// Simulation over 30 days
 for (double t = 0; t < 30; t += 0.5)
 {
-    // ADM-Simulation (vereinfacht)
-    double[] stream = /* ADM-Zustandsvektor */;
+    // ADM simulation (simplified)
+    double[] stream = /* ADM state vector */;
     
-    // Messungen durchführen
+    // Perform measurements
     sensors.measure_type0(t, stream, "F1", 3);
     
-    // Prozessparameter abrufen
+    // Retrieve process parameters
     double pH = sensors.getCurrentMeasurementD("pH_F1_3");
     double vfa = sensors.getCurrentMeasurementD("VFA_F1_3");
     
-    Console.WriteLine($"Tag {t}: pH={pH:F2}, VFA={vfa:F0} mg/l");
+    Console.WriteLine($"Day {t}: pH={pH:F2}, VFA={vfa:F0} mg/l");
 }
 ```
 
-## 📦 Hauptkomponenten
+## 📦 Main Components
 
-### 1. Anlagenkomponenten (`biogas.plant`)
+### 1. Plant Components (`biogas.plant`)
 
 ```csharp
-// Biogasanlage erstellen
+// Create biogas plant
 var plant = new plant();
 
-// Fermenter hinzufügen
-var fermenter = new digester("F1", "Hauptfermenter");
+// Add digester
+var fermenter = new digester("F1", "Main Digester");
 fermenter.set_params_of("Vliq", 2500.0, "T", 42.0);
 plant.addDigester(fermenter);
 
-// BHKW hinzufügen
-var chp = new chp("CHP1", "BHKW 1");
+// Add CHP unit
+var chp = new chp("CHP1", "CHP Unit 1");
 chp.set_params_of("Pel", 500.0, "eta_el", 0.42);
 plant.addCHP(chp);
 
-// Speichern
+// Save configuration
 plant.saveAsXML("my_plant.xml");
 ```
 
-### 2. Substrate (`biogas.substrates`)
+### 2. Substrates (`biogas.substrates`)
 
 ```csharp
-// Substrat definieren
-var maize = new substrate("maize", "Maissilage");
+// Define substrate
+var maize = new substrate("maize", "Maize Silage");
 maize.set_params_of(
-    "TS", 32.0,    // % FM
-    "VS", 95.0,    // % TS
-    "RF", 20.0,    // Rohfaser
-    "RP", 8.0,     // Rohprotein
-    "RL", 3.0      // Rohfett
+    "TS", 32.0,    // % FM (Fresh Matter)
+    "VS", 95.0,    // % TS (Total Solids)
+    "RF", 20.0,    // Crude Fiber
+    "RP", 8.0,     // Crude Protein
+    "RL", 3.0      // Crude Fat
 );
 
-// Berechnungen
+// Calculations
 double bmp = maize.calcBMP().Value;              // l/g FM
 double gasQuality = maize.calcGasQuality().Value; // % CH4
 Console.WriteLine($"BMP: {bmp:F2} l/g FM, CH4: {gasQuality:F1}%");
 ```
 
-### 3. Sensoren (`biogas.sensors`)
+### 3. Sensors (`biogas.sensors`)
 
 ```csharp
-// Sensor-Netzwerk automatisch erstellen
+// Automatically create sensor network
 var sensors = sensors.create_sensor_network(
     plant, substrates, plant_network, plant_network_max
 );
 
-// Messungen durchführen
-double[] stream = /* ADM-Stream */;
+// Perform measurements
+double[] stream = /* ADM Stream */;
 sensors.measure(5.0, "pH_F1_3", stream);
 
-// Werte abrufen
+// Retrieve values
 physValue pH = sensors.getCurrentMeasurement("pH_F1_3");
 double pH_value = sensors.getCurrentMeasurementD("pH_F1_3");
 
-// Zeitreihe
+// Time series
 double[] time = sensors.getTimeStream();
 double[] pH_values;
 sensors.getMeasurementStream("pH_F1_3", out pH_values);
 ```
 
-### 4. Chemische Berechnungen (`biogas.chemistry`)
+### 4. Chemical Calculations (`biogas.chemistry`)
 
 ```csharp
 using biogas;
 
-// Buswell-Gleichung für Kohlenhydrate
+// Buswell equation for carbohydrates
 physValue ch4, co2;
 chemistry.buswell_extended("Xch", out ch4, out co2);
 Console.WriteLine($"CH4: {ch4.Value} mol/mol, CO2: {co2.Value} mol/mol");
 
-// COD berechnen
-physValue cod = chemistry.get_COD_of("Sac");  // Essigsäure
-Console.WriteLine($"COD Acetat: {cod.Value} gCOD/mol");
+// Calculate COD
+physValue cod = chemistry.get_COD_of("Sac");  // Acetic acid
+Console.WriteLine($"COD Acetate: {cod.Value} gCOD/mol");
 
-// Elementzusammensetzung
+// Elemental composition
 physValue c, h, o, n, s;
 chemistry.get_CHONS_of("Xpr", out c, out h, out o, out n, out s);
 Console.WriteLine($"Protein: C{c.Value}H{h.Value}O{o.Value}N{n.Value}");
 ```
 
-### 5. Optimierung (`biooptim`)
+### 5. Optimization (`biooptim`)
 
 ```csharp
 using biooptim;
 
-// Fitness-Parameter definieren
+// Define fitness parameters
 var fitnessParams = new fitness_params(2);
 fitnessParams.myWeights.set_params_of(
     "w_money", 0.4,
@@ -148,7 +148,7 @@ fitnessParams.myWeights.set_params_of(
     "w_pH", 0.15
 );
 
-// Zielfunktionen berechnen
+// Calculate objective functions
 double stability, energyBalance, fitness_constr;
 double[] fitness;
 
@@ -158,70 +158,70 @@ objectives.getObjectives(
 );
 
 Console.WriteLine($"Fitness: {fitness[0]:F3}");
-Console.WriteLine($"Energiebilanz: {energyBalance:F2} k€/d");
+Console.WriteLine($"Energy Balance: {energyBalance:F2} k€/d");
 ```
 
-## 🔬 Wissenschaftliche Grundlagen
+## 🔬 Scientific Basis
 
 ### Anaerobic Digestion Model No. 1 (ADM1)
 
-Das ADM1 ist das führende mathematische Modell für anaerobe Abbauprozesse:
+The ADM1 is the leading mathematical model for anaerobic digestion processes:
 
-- **Prozessschritte**: Desintegration → Hydrolyse → Acidogenese → Acetogenese → Methanogenese
-- **19 Zustandsvariablen**: Gelöste und partikuläre Komponenten
-- **Inhibierungen**: pH, NH3, H2
-- **Gasphase**: CH4, CO2, H2
+- **Process Steps**: Disintegration → Hydrolysis → Acidogenesis → Acetogenesis → Methanogenesis
+- **19 State Variables**: Dissolved and particulate components
+- **Inhibitions**: pH, NH3, H2
+- **Gas Phase**: CH4, CO2, H2
 
-### Physikochemische Modelle
+### Physicochemical Models
 
-- **Buswell-Gleichung**: Theoretische Biogasproduktion aus CcHhOoNnSs
-- **COD-Bilanzierung**: Chemical Oxygen Demand für alle Komponenten
-- **Elementarbilanzen**: C, H, O, N, S
-- **Thermodynamik**: Gibbs-Energie, Gleichgewichte
+- **Buswell Equation**: Theoretical biogas production from CcHhOoNnSs
+- **COD Balancing**: Chemical Oxygen Demand for all components
+- **Elemental Balances**: C, H, O, N, S
+- **Thermodynamics**: Gibbs energy, equilibria
 
-### Validierte Parameter
+### Validated Parameters
 
-Alle Default-Werte basieren auf wissenschaftlicher Literatur:
+All default values are based on scientific literature:
 - Batstone et al. (2002): ADM1 Report
-- Rieger et al. (2003): Sensor-Modellierung
-- Koch et al. (2010): Gras-Silage-Modellierung
-- Gaida (2009): Theoretische Grundlagen
+- Rieger et al. (2003): Sensor modeling
+- Koch et al. (2010): Grass silage modeling
+- Gaida (2009): Theoretical foundations
 
-## 📊 Typische Anwendungsfälle
+## 📊 Typical Use Cases
 
-### 1. Prozessüberwachung
+### 1. Process Monitoring
 
 ```csharp
-// Kritische Prozessparameter überwachen
+// Monitor critical process parameters
 double pH = sensors.getCurrentMeasurementD("pH_F1_3");
 double vfa = sensors.getCurrentMeasurementD("VFA_F1_3");
 double olr = sensors.getCurrentMeasurementD("OLR_F1");
 
 if (pH < 6.8 || pH > 7.5)
-    Console.WriteLine("⚠️ pH außerhalb Optimum!");
+    Console.WriteLine("⚠️ pH outside optimal range!");
     
 if (vfa > 3000)
-    Console.WriteLine("⚠️ VFA kritisch hoch!");
+    Console.WriteLine("⚠️ VFA critically high!");
     
 if (olr > 4.0)
-    Console.WriteLine("⚠️ Überlastung!");
+    Console.WriteLine("⚠️ Overload!");
 ```
 
-### 2. Substratoptimierung
+### 2. Substrate Optimization
 
 ```csharp
-// Verschiedene Substratmischungen testen
+// Test different substrate mixtures
 var scenarios = new Dictionary<string, double[]>
 {
-    {"100% Mais", new double[] {150, 0}},
+    {"100% Maize", new double[] {150, 0}},
     {"50/50 Mix", new double[] {75, 100}},
     {"Optimal", new double[] {80, 120}}
 };
 
 foreach (var scenario in scenarios)
 {
-    // Simulation mit Mischung
-    // ... ADM-Berechnung ...
+    // Simulation with mixture
+    // ... ADM calculation ...
     
     double pH = sensors.getCurrentMeasurementD("pH_F1_3");
     double ch4 = sensors.getCurrentMeasurementD("CH4_F1_3");
@@ -230,63 +230,63 @@ foreach (var scenario in scenarios)
 }
 ```
 
-### 3. Energiebilanz
+### 3. Energy Balance
 
 ```csharp
-// Elektrische Energie
+// Electrical energy
 double[] biogas = {10, 500, 200};  // H2, CH4, CO2 [m³/d]
 physValue P_el, P_therm;
 plant.burnBiogas("CHP1", biogas, out P_el, out P_therm);
 
-// Wärmebedarf
+// Heat requirement
 double heatPower = plant.calcHeatPower("F1", Q, substrates, 
                                        plant.Tout, sensors);
 
-// Bilanz
+// Balance
 double balance = P_therm.Value - heatPower;
-Console.WriteLine($"Wärmeüberschuss: {balance:F1} kWh/d");
+Console.WriteLine($"Heat surplus: {balance:F1} kWh/d");
 ```
 
-### 4. Wirtschaftlichkeit
+### 4. Economics
 
 ```csharp
-// EEG-Vergütung
-double verguetung = plant.getVerguetung(500.0, true);  // kW, Güllebonus
-Console.WriteLine($"Vergütung: {verguetung * 100:F2} ct/kWh");
+// EEG remuneration
+double remuneration = plant.getVerguetung(500.0, true);  // kW, manure bonus
+Console.WriteLine($"Remuneration: {remuneration * 100:F2} ct/kWh");
 
-// Jahreserlös
-double volllaststunden = 8000;  // h/a
-double jahresertrag = 500 * volllaststunden * verguetung;
-Console.WriteLine($"Jahreserlös: {jahresertrag:N0} €/a");
+// Annual revenue
+double fullLoadHours = 8000;  // h/a
+double annualRevenue = 500 * fullLoadHours * remuneration;
+Console.WriteLine($"Annual Revenue: {annualRevenue:N0} €/a");
 ```
 
-## 🛠️ Erweiterte Funktionen
+## 🛠️ Advanced Features
 
-### Realistische Sensoren
+### Realistic Sensors
 
 ```csharp
-// Sensor mit Rauschen und Drift
+// Sensor with noise and drift
 var pH_sensor = new pH_sensor("F1_3");
 pH_sensor.myConfigs[0].set_params_of(
     "apply_real_sensor", true,
-    "noise_level", 0.05,        // 5% Rauschen
-    "drift", 0.01,              // 0.01 pH/d Drift
-    "dT_calib", 7.0             // Wöchentliche Kalibrierung
+    "noise_level", 0.05,        // 5% noise
+    "drift", 0.01,              // 0.01 pH/d drift
+    "dT_calib", 7.0             // Weekly calibration
 );
 
-// Ideale vs. reale Messung
+// Ideal vs. real measurement
 physValue pH_ideal = pH_sensor.getCurrentMeasurement(false);
 physValue pH_real = pH_sensor.getCurrentMeasurement(true);
 ```
 
-### Multi-Fermenter-Betrieb
+### Multi-Digester Operation
 
 ```csharp
-// Verschiedene Fermenter mit unterschiedlichen Substratmischungen
+// Different digesters with different substrate mixtures
 var distribution = new Dictionary<string, double[]>
 {
-    {"F1", new double[] {100, 0}},      // Nur Mais
-    {"F2", new double[] {0, 150}},      // Nur Gülle
+    {"F1", new double[] {100, 0}},      // Only maize
+    {"F2", new double[] {0, 150}},      // Only manure
     {"F3", new double[] {50, 50}}       // Mix
 };
 
@@ -295,7 +295,7 @@ foreach (var kvp in distribution)
     string id = kvp.Key;
     double[] Q = kvp.Value;
     
-    // HRT berechnen
+    // Calculate HRT (Hydraulic Retention Time)
     double vliq = plant.getDigesterParam(id, "Vliq");
     var hrt = digester.calcHRT(Q, new physValue(vliq, "m³"));
     
@@ -303,7 +303,7 @@ foreach (var kvp in distribution)
 }
 ```
 
-### Fitness-basierte Optimierung
+### Fitness-based Optimization
 
 ```csharp
 // Multi-Objective Optimization
@@ -313,83 +313,83 @@ fitnessParams.set_params_of("nObjectives", 2);
 double[] fitness;
 objectives.getObjectives(/* ... */, out fitness);
 
-Console.WriteLine($"Ziel 1 (Wirtschaftlichkeit): {fitness[0]:F2}");
-Console.WriteLine($"Ziel 2 (Prozessstabilität): {fitness[1]:F3}");
+Console.WriteLine($"Objective 1 (Economics): {fitness[0]:F2}");
+Console.WriteLine($"Objective 2 (Process Stability): {fitness[1]:F3}");
 ```
 
-## 📖 Dokumentation
+## 📖 Documentation
 
-Vollständige API-Dokumentation verfügbar in `docs/biogas_csharp/api_documentation/`:
+Full API documentation is available in `docs/biogas_csharp/api_documentation/`:
 
-- **Anlagenkomponenten**:
-  - `plant_api.md` - Gesamtanlage
-  - `digesters_api.md` - Fermenter, Heizung, Rührwerke
-  - `chps_api.md` - BHKWs
-  - `transportation_api.md` - Pumpen und Substrat-Transport
-  - `final_storage_api.md` - Endlager
-  - `gas_storage_api.md` - Gasspeicher (geplant)
+- **Plant Components**:
+  - [plant_api.md](../docs/biogas_csharp/api_documentation/plant/plant_api.md) - Overall plant
+  - [digesters_api.md](../docs/biogas_csharp/api_documentation/plant/digesters_api.md) - Digesters, heating, agitators
+  - [chps_api.md](../docs/biogas_csharp/api_documentation/plant/chps_api.md) - CHP units
+  - [transportation_api.md](../docs/biogas_csharp/api_documentation/plant/transportation_api.md) - Pumps and substrate transport
+  - [final_storage_api.md](../docs/biogas_csharp/api_documentation/plant/final_storage_api.md) - Final storage
+  - [gas_storage_api.md](../docs/biogas_csharp/api_documentation/plant/gas_storage_api.md) - Gas storage (planned)
 
-- **Substrate & Chemie**:
-  - `substrates_api.md` - Substrat-Definitionen
-  - `physchem_api.md` - Physikochemische Berechnungen
-  - `biogas_api.md` - Biogas-Zusammensetzung
+- **Substrates & Chemistry**:
+  - [substrates_api.md](../docs/biogas_csharp/api_documentation/substrates_api.md) - Substrate definitions
+  - [physchem_api.md](../docs/biogas_csharp/api_documentation/physchem_api.md) - Physicochemical calculations
+  - [biogas_api.md](../docs/biogas_csharp/api_documentation/biogas_api.md) - Biogas composition
 
-- **Sensoren**:
-  - `sensors_api.md` - Sensor-Verwaltung
-  - `sensor_base_api.md` - Basis-Sensor-Klasse
-  - `sensor_array_api.md` - Sensor-Arrays
-  - `sensor_config_api.md` - Sensor-Konfiguration
+- **Sensors**:
+  - [sensors_api.md](../docs/biogas_csharp/api_documentation/plant/sensors/sensors_api.md) - Sensor management
+  - [sensor_base_api.md](../docs/biogas_csharp/api_documentation/plant/sensors/sensor_base_api.md) - Base sensor class
+  - [sensor_array_api.md](../docs/biogas_csharp/api_documentation/plant/sensors/sensor_array_api.md) - Sensor arrays
+  - [sensor_config_api.md](../docs/biogas_csharp/api_documentation/plant/sensors/sensor_config_api.md) - Sensor configuration
 
-- **Optimierung**:
-  - `optim_params_api.md` - Fitness-Parameter
-  - `optimization_api.md` - Zielfunktionen
+- **Optimization**:
+  - [optim_params_api.md](../docs/biogas_csharp/api_documentation/optim_params_api.md) - Fitness parameters
+  - [optimization_api.md](../docs/biogas_csharp/api_documentation/optimization_api.md) - Objective functions
 
-- **Wirtschaftlichkeit**:
-  - `finances_api.md` - EEG-Vergütung
+- **Economics**:
+  - [finances_api.md](../docs/biogas_csharp/api_documentation/plant/finances_api.md) - EEG remuneration
 
-- **Kalibrierung**:
-  - `calibration_api.md` - Sensor-Kalibrierung (geplant)
+- **Calibration**:
+  - [calibration_api.md](../docs/biogas_csharp/api_documentation/calibration_api.md) - Sensor calibration (planned)
 
-## ⚙️ Systemanforderungen
+## ⚙️ System Requirements
 
-- **.NET Framework** 4.5 oder höher / **.NET Core** 3.1+
-- **C# 7.0** oder höher
-- Optional: **MATLAB** für ADM-Integration (über COM)
+- **.NET Framework** 4.5 or higher / **.NET Core** 3.1+
+- **C# 7.0** or higher
+- Optional: **MATLAB** for ADM integration (via COM)
 
 ### Dependencies
 
-Die Toolbox verwendet primär .NET-Standardbibliotheken:
-- `System.Xml` - XML-Verarbeitung
-- `System.Collections.Generic` - Datenstrukturen
-- Keine externen NuGet-Pakete erforderlich
+The toolbox primarily uses .NET standard libraries:
+- `System.Xml` - XML processing
+- `System.Collections.Generic` - Data structures
+- No external NuGet packages required
 
 ## 🔧 Installation
 
-### Von Source
+### From Source
 
 ```bash
 git clone https://github.com/dgaida/matlab_toolboxes.git
 cd matlab_toolboxes/biogas_c#
 ```
 
-Projekt in Visual Studio und kompilieren.
+Open the project in Visual Studio and compile.
 
-### Als Library
+### As a Library
 
-1. Kompilierte DLL referenzieren:
+1. Reference the compiled DLL:
    ```csharp
-   // In Projekt-Referenzen
+   // In project references
    using biogas;
    using science;
    using biooptim;
    ```
 
-2. Oder Source-Files direkt einbinden
+2. Or include source files directly
 
 ## 🧪 Testing
 
 ```csharp
-// Unit Test Beispiel (NUnit)
+// Unit Test Example (NUnit)
 [Test]
 public void TestBuswellEquation()
 {
@@ -401,13 +401,13 @@ public void TestBuswellEquation()
 }
 ```
 
-## 📝 XML-Konfiguration
+## 📝 XML Configuration
 
-### Beispiel: Fermenter
+### Example: Digester
 
 ```xml
 <digester id="F1">
-    <name>Hauptfermenter</name>
+    <name>Main Digester</name>
     <physValue symbol="Vliq">
         <value>2500</value>
         <unit>m³</unit>
@@ -424,12 +424,12 @@ public void TestBuswellEquation()
 </digester>
 ```
 
-### Beispiel: Substrat
+### Example: Substrate
 
 ```xml
 <substrate id="maize">
-    <name>Maissilage</name>
-    <substrate_class>Mais (GPS) (EK I)</substrate_class>
+    <name>Maize Silage</name>
+    <substrate_class>Maize (GPS) (EK I)</substrate_class>
     <Weender>
         <physValue symbol="TS">
             <value>32</value>
@@ -445,58 +445,58 @@ public void TestBuswellEquation()
 
 ## 🤝 Contributing
 
-Beiträge sind willkommen! Bitte beachten Sie:
+Contributions are welcome! Please note:
 
-1. **Code-Style**: Konsistent mit bestehendem Code
-2. **Dokumentation**: XML-Kommentare für alle public-Methoden
-3. **Tests**: Unit-Tests für neue Features
-4. **Validierung**: Wissenschaftliche Referenzen für neue Modelle
+1. **Code Style**: Consistent with existing code
+2. **Documentation**: XML comments for all public methods
+3. **Tests**: Unit tests for new features
+4. **Validation**: Scientific references for new models
 
-## 📜 Lizenz
+## 📜 License
 
 GPL-3.0 license
 
-## 📚 Literatur
+## 📚 Literature
 
-### Kernreferenzen
+### Core References
 
 1. **Batstone et al. (2002)**: "The IWA Anaerobic Digestion Model No 1 (ADM1)" - Water Science & Technology
 2. **Koch et al. (2010)**: "Biogas from grass silage – Measurements and modeling with ADM1" - Bioresource Technology
 3. **Rieger et al. (2003)**: "Modelling of a secondary clarifier combined with a non-ideal activated sludge model" - WST
-4. **Gaida (2009)**: "Die anaerobe Fermentation - Theoretische Grundlagen, Simulation und Regelung"
+4. **Gaida (2009)**: "Anaerobic Fermentation - Theoretical Foundations, Simulation and Control" (Die anaerobe Fermentation - Theoretische Grundlagen, Simulation und Regelung)
 
-### Weiterführend
+### Further Reading
 
-- VDI 4630: Vergärung organischer Stoffe
-- VDI 3475: Biogas für Motoren
-- FNR: Leitfaden Biogas
-- KTBL: Faustzahlen Biogas
+- VDI 4630: Fermentation of organic materials
+- VDI 3475: Biogas for engines
+- FNR: Biogas Guide
+- KTBL: Biogas Figures
 
-## 👥 Autoren & Kontakt
+## 👥 Authors & Contact
 
 daniel.gaida@th-koeln.de
 
-## 🙏 Danksagungen
+## 🙏 Acknowledgments
 
-Diese Toolbox basiert auf jahrelanger Forschung im Bereich der anaeroben Vergärung. Besonderer Dank gilt:
+This toolbox is based on years of research in the field of anaerobic digestion. Special thanks to:
 
-- IWA Task Group für ADM1
+- IWA Task Group for ADM1
 
 ---
 
-## 💡 Tipps & Tricks
+## 💡 Tips & Tricks
 
 ### Performance
 
 ```csharp
-// Effizient: Wiederverwendung von Objekten
+// Efficient: Reusing objects
 var sensors = sensors.create_sensor_network(/* ... */);
 for (double t = 0; t < 100; t += 0.5)
 {
     sensors.measure_type0(t, stream, "F1", 3);
 }
 
-// Ineffizient: Neuerstellen bei jedem Durchlauf
+// Inefficient: Re-creating in every iteration
 for (double t = 0; t < 100; t += 0.5)
 {
     var sensors = new sensors();  // ❌
@@ -504,7 +504,7 @@ for (double t = 0; t < 100; t += 0.5)
 }
 ```
 
-### Fehlerbehandlung
+### Error Handling
 
 ```csharp
 try
@@ -513,15 +513,15 @@ try
 }
 catch (exception ex)
 {
-    Console.WriteLine($"Fehler: {ex.Message}");
-    // ErrorLog.txt wurde automatisch erstellt
+    Console.WriteLine($"Error: {ex.Message}");
+    // ErrorLog.txt is automatically created
 }
 ```
 
 ### Debugging
 
 ```csharp
-// Detaillierte Ausgabe
+// Detailed output
 Console.WriteLine(plant.print());
 Console.WriteLine(sensors.print());
 Console.WriteLine(substrates.print());
@@ -530,5 +530,5 @@ Console.WriteLine(substrates.print());
 ---
 
 **Version**: 0.2  
-**Letztes Update**: Januar 2026  
-**Status**: Produktiv (ADM1-Kern), Entwicklung (erweiterte Features)
+**Last Update**: January 2026
+**Status**: Productive (ADM1 core), Development (extended features)
